@@ -3,7 +3,7 @@ import { useFonts } from 'expo-font';
 import { Slot, Stack, useRouter, useSegments } from 'expo-router';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -19,20 +19,39 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+  const [showSplash, setShowSplash] = useState(true);
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
 
   useEffect(() => {
     if (loaded) {
-      // Hide the splash screen after fonts are loaded
+      // Hide the native splash screen
       ExpoSplashScreen.hideAsync().catch(console.warn);
-      
-      // Only navigate if we're at the root
-      if (segments.length === 0) {
-        router.replace('/(auth)/details');
-      }
     }
-  }, [loaded, segments]);
+  }, [loaded]);
 
-  if (!loaded) {
+  useEffect(() => {
+    if (loaded && !showSplash) {
+      setIsNavigationReady(true);
+    }
+  }, [loaded, showSplash]);
+
+  useEffect(() => {
+    if (loaded) {
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [loaded]);
+
+  useEffect(() => {
+    if (isNavigationReady && segments.length === 0) {
+      router.replace('/(auth)/details');
+    }
+  }, [isNavigationReady, segments]);
+
+  if (!loaded || showSplash) {
     return <SplashScreen />;
   }
 

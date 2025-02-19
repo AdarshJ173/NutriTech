@@ -1,16 +1,45 @@
-import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Image, StyleSheet, Dimensions, Animated } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen() {
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 20,
+        friction: 7,
+        useNativeDriver: true,
+      })
+    ]).start();
+  }, [fadeAnim, scaleAnim]);
+
   return (
     <View style={styles.container}>
-      <View style={styles.logoContainer}>
-        <View style={styles.circle}>
-          <Text style={styles.logoText}>NutriTech</Text>
-        </View>
-      </View>
+      <Animated.View 
+        style={[
+          styles.logoContainer,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }]
+          }
+        ]}
+      >
+        <Image
+          source={require('../assets/images/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </Animated.View>
     </View>
   );
 }
@@ -18,31 +47,18 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#58CC02',
-    width: '100%',
-    height: '100%',
-  },
-  logoContainer: {
-    position: 'absolute',
-    width: 214,
-    height: 214,
-    left: width / 2 - 107, // Center horizontally (214/2)
-    top: height / 2 - 107, // Center vertically (214/2)
-  },
-  circle: {
-    width: 214,
-    height: 214,
     backgroundColor: '#FFFFFF',
-    borderRadius: 107,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoText: {
-    fontFamily: 'System',
-    fontWeight: '800',
-    fontSize: 32,
-    lineHeight: 39,
-    textAlign: 'center',
-    color: '#58CC02',
+  logoContainer: {
+    width: width * 0.7,
+    height: height * 0.3,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logo: {
+    width: '100%',
+    height: '100%',
   },
 }); 
