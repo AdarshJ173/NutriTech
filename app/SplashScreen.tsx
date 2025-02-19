@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoText: {
-    fontFamily: 'Inter',
+    fontFamily: 'System',
     fontWeight: '800',
     fontSize: 32,
     lineHeight: 39,

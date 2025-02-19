@@ -5,20 +5,25 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "nutritech",
     "userInterfaceStyle": "automatic",
     "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
       "backgroundColor": "#58CC02"
     },
+    "assetBundlePatterns": ["**/*"],
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nutritech.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.nutritech.app"
     },
     "web": {
       "bundler": "metro",
@@ -29,7 +34,8 @@
       "expo-router"
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "tsconfigPaths": true
     }
   }
 }
