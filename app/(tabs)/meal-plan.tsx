@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Image,
   ViewStyle,
   TextStyle,
+  AccessibilityInfo,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -19,36 +21,63 @@ import Animated, {
   SlideInRight,
   useAnimatedStyle,
   withSpring,
+  withTiming,
+  useSharedValue,
+  interpolate,
+  Extrapolate,
 } from 'react-native-reanimated';
 import { ThemedText } from '@/components/ThemedText';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColorScheme } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
+// Enhanced color system with semantic naming and WCAG compliance
 const Colors = {
   light: {
-    primary: '#4CAF50',
+    primary: '#2E7D32', // Adjusted for AA contrast
     primaryLight: '#E8F5E9',
-    primaryDark: '#388E3C',
+    primaryDark: '#1B5E20',
     background: '#FFFFFF',
     surface: '#F5F7FA',
     text: '#1A1A1A',
-    textSecondary: '#666666',
-    textTertiary: '#999999',
+    textSecondary: '#595959', // Adjusted for AA contrast
+    textTertiary: '#757575', // Adjusted for AA contrast
     border: '#E0E0E0',
-    success: '#58CC02',
-    successLight: 'rgba(88, 204, 2, 0.1)',
+    success: '#2E7D32',
+    successLight: 'rgba(46, 125, 50, 0.1)',
     card: '#FFFFFF',
     shadow: '#000000',
+    focus: '#2196F3',
+    error: '#D32F2F',
+  },
+  dark: {
+    primary: '#81C784',
+    primaryLight: '#1B5E20',
+    primaryDark: '#A5D6A7',
+    background: '#121212',
+    surface: '#1E1E1E',
+    text: '#FFFFFF',
+    textSecondary: '#B3B3B3',
+    textTertiary: '#999999',
+    border: '#2C2C2C',
+    success: '#81C784',
+    successLight: 'rgba(129, 199, 132, 0.1)',
+    card: '#1E1E1E',
+    shadow: '#000000',
+    focus: '#64B5F6',
+    error: '#EF5350',
   },
 };
 
-const Theme = {
+// Enhanced theme with responsive scaling
+const createTheme = (windowWidth: number) => ({
   spacing: {
-    xs: 4,
-    sm: 8,
-    md: 16,
-    lg: 24,
-    xl: 32,
+    xs: Math.max(4, windowWidth * 0.01),
+    sm: Math.max(8, windowWidth * 0.02),
+    md: Math.max(16, windowWidth * 0.04),
+    lg: Math.max(24, windowWidth * 0.06),
+    xl: Math.max(32, windowWidth * 0.08),
   },
   borderRadius: {
     sm: 8,
@@ -58,24 +87,24 @@ const Theme = {
   },
   typography: {
     title: {
-      fontSize: 24,
+      fontSize: Math.max(24, windowWidth * 0.06),
       fontWeight: '700' as const,
-      lineHeight: 32,
+      lineHeight: Math.max(32, windowWidth * 0.08),
     },
     subtitle: {
-      fontSize: 18,
+      fontSize: Math.max(18, windowWidth * 0.045),
       fontWeight: '600' as const,
-      lineHeight: 24,
+      lineHeight: Math.max(24, windowWidth * 0.06),
     },
     body: {
-      fontSize: 16,
+      fontSize: Math.max(16, windowWidth * 0.04),
       fontWeight: '400' as const,
-      lineHeight: 24,
+      lineHeight: Math.max(24, windowWidth * 0.06),
     },
     caption: {
-      fontSize: 14,
+      fontSize: Math.max(14, windowWidth * 0.035),
       fontWeight: '400' as const,
-      lineHeight: 20,
+      lineHeight: Math.max(20, windowWidth * 0.05),
     },
   },
   shadows: {
@@ -102,7 +131,20 @@ const Theme = {
       },
     }),
   },
-};
+  animation: {
+    scale: 1,
+    duration: {
+      fast: 200,
+      normal: 300,
+      slow: 500,
+    },
+    easing: {
+      easeOut: [0.4, 0, 0.2, 1],
+      easeIn: [0.4, 0, 1, 1],
+      easeInOut: [0.4, 0, 0.2, 1],
+    },
+  },
+});
 
 interface MealCardProps {
   mealType: string;
@@ -112,30 +154,61 @@ interface MealCardProps {
   onPress: () => void;
 }
 
-const MealCard: React.FC<MealCardProps> = ({ mealType, time, calories, foods, onPress }) => (
-  <TouchableOpacity onPress={onPress}>
-    <Animated.View 
-      entering={FadeInUp.delay(200)} 
-      style={styles.mealCardContainer}>
-      <View style={styles.mealCard}>
-        <View style={styles.mealInfo}>
-          <Text style={styles.mealTime}>{time}</Text>
-          <Text style={styles.mealName}>{mealType}</Text>
-          <View style={styles.caloriesBadgeContainer}>
-            <Text style={styles.caloriesText}>{calories} kcal</Text>
+const MealCard: React.FC<MealCardProps> = ({ mealType, time, calories, foods, onPress }) => {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.98, {
+      damping: 20,
+      stiffness: 300,
+    });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, {
+      damping: 20,
+      stiffness: 300,
+    });
+  };
+
+  return (
+    <TouchableOpacity 
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={`${mealType} at ${time}, ${calories} calories`}
+      accessibilityHint="Double tap to view meal details">
+      <Animated.View 
+        entering={FadeInUp.springify().damping(15)} 
+        style={[styles.mealCardContainer, animatedStyle]}>
+        <View style={styles.mealCard}>
+          <View style={styles.mealInfo}>
+            <Text style={styles.mealTime}>{time}</Text>
+            <Text style={styles.mealName}>{mealType}</Text>
+            <View style={styles.caloriesBadgeContainer}>
+              <Text style={styles.caloriesText}>{calories} kcal</Text>
+            </View>
+          </View>
+          <View style={styles.foodList}>
+            {foods.map((food, index) => (
+              <Text key={index} style={styles.foodItem}>
+                • {food}
+              </Text>
+            ))}
           </View>
         </View>
-        <View style={styles.foodList}>
-          {foods.map((food, index) => (
-            <Text key={index} style={styles.foodItem}>
-              • {food}
-            </Text>
-          ))}
-        </View>
-      </View>
-    </Animated.View>
-  </TouchableOpacity>
-);
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
 
 const DayButton: React.FC<{ 
   day: string; 
@@ -179,10 +252,17 @@ interface DayPlan {
   meals: Meal[];
 }
 
-export default function MealPlanScreen() {
+const MealPlanScreen = () => {
+  const { width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const theme = useMemo(() => createTheme(windowWidth), [windowWidth]);
+  const colors = colorScheme === 'dark' ? Colors.dark : Colors.light;
+  
   const [selectedDay, setSelectedDay] = useState(new Date());
   const [weeklyPlan] = useState<DayPlan[]>(generateWeeklyPlan());
   const scrollViewRef = React.useRef<Animated.ScrollView>(null);
+  const headerHeight = useSharedValue(0);
   
   React.useEffect(() => {
     // Calculate the index of today in the week
@@ -194,7 +274,7 @@ export default function MealPlanScreen() {
     setTimeout(() => {
       if (scrollViewRef.current) {
         scrollViewRef.current.scrollTo({
-          x: adjustedIndex * (48 + Theme.spacing.xs), // width of day button + margin
+          x: adjustedIndex * (48 + 4), // width of day button + margin (4px)
           animated: true,
         });
       }
@@ -258,19 +338,33 @@ export default function MealPlanScreen() {
     });
   }
 
-  const selectedDayPlan = weeklyPlan.find(
-    plan => plan.date.toDateString() === selectedDay.toDateString()
+  // Memoized calculations
+  const selectedDayPlan = useMemo(() => 
+    weeklyPlan.find(plan => plan.date.toDateString() === selectedDay.toDateString()),
+    [weeklyPlan, selectedDay]
   );
 
-  const totalNutrition = selectedDayPlan?.meals.reduce(
-    (acc, meal) => ({
-      calories: acc.calories + meal.calories,
-      protein: acc.protein + meal.protein,
-      carbs: acc.carbs + meal.carbs,
-      fats: acc.fats + meal.fats,
-    }),
-    { calories: 0, protein: 0, carbs: 0, fats: 0 }
+  const totalNutrition = useMemo(() => 
+    selectedDayPlan?.meals.reduce(
+      (acc, meal) => ({
+        calories: acc.calories + meal.calories,
+        protein: acc.protein + meal.protein,
+        carbs: acc.carbs + meal.carbs,
+        fats: acc.fats + meal.fats,
+      }),
+      { calories: 0, protein: 0, carbs: 0, fats: 0 }
+    ),
+    [selectedDayPlan]
   );
+
+  // Scroll handling with performance optimization
+  const handleScroll = useCallback((event: any) => {
+    const scrollY = event.nativeEvent.contentOffset.y;
+    headerHeight.value = withSpring(
+      Math.max(0, 120 - scrollY),
+      { damping: 20, stiffness: 200 }
+    );
+  }, []);
 
   const handleMealPress = (mealType: string) => {
     console.log(`${mealType} pressed`);
@@ -278,15 +372,17 @@ export default function MealPlanScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       
-      {/* Header */}
+      {/* Enhanced header with collapsible animation */}
       <Animated.View 
         entering={FadeIn} 
-        style={styles.header}>
-        <ThemedText type="title">Meal Plan</ThemedText>
-        <Text style={styles.subtitle}>Your personalized nutrition schedule</Text>
+        style={[styles.header, { height: headerHeight }]}>
+        <ThemedText type="title" style={styles.headerTitle}>Meal Plan</ThemedText>
+        <Text style={[styles.subtitle, { color: colors.text }]}>
+          Your personalized nutrition schedule
+        </Text>
       </Animated.View>
 
       {/* Week Day Selector */}
@@ -326,10 +422,12 @@ export default function MealPlanScreen() {
       </Animated.View>
 
       {/* Meals List */}
-      <Animated.ScrollView 
-        style={styles.content} 
+      <Animated.ScrollView
+        style={[styles.content, { paddingBottom: insets.bottom + theme.spacing.xl }]}
         showsVerticalScrollIndicator={false}
-        entering={FadeIn.delay(400)}>
+        entering={FadeIn.delay(400)}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}>
         <View style={styles.nutritionSummary}>
           <View style={styles.summaryHeader}>
             <ThemedText type="subtitle">Daily Nutrition</ThemedText>
@@ -398,7 +496,9 @@ export default function MealPlanScreen() {
       </Animated.ScrollView>
     </View>
   );
-}
+};
+
+export default MealPlanScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -406,53 +506,67 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
   } as ViewStyle,
   header: {
-    padding: Theme.spacing.lg,
-    paddingTop: Platform.OS === 'ios' ? 60 : Theme.spacing.xl,
+    padding: 24,
     backgroundColor: Colors.light.primary,
+    minHeight: 120,
   } as ViewStyle,
-  subtitle: {
-    ...Theme.typography.body,
+  headerTitle: {
     color: Colors.light.background,
-    marginTop: Theme.spacing.xs,
+    marginBottom: 4,
+  } as TextStyle,
+  subtitle: {
+    fontSize: 16,
+    fontWeight: '400',
+    lineHeight: 24,
+    color: Colors.light.background,
+    marginTop: 4,
   } as TextStyle,
   daysWrapper: {
     backgroundColor: Colors.light.background,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.border,
-    paddingVertical: Theme.spacing.xs,
+    paddingVertical: 4,
   } as ViewStyle,
   daysContainer: {
     flexGrow: 0,
     flexShrink: 0,
   } as ViewStyle,
   daysScrollContent: {
-    paddingHorizontal: Theme.spacing.lg,
-    gap: Theme.spacing.sm,
+    paddingHorizontal: 24,
+    gap: 8,
   } as ViewStyle,
   dayButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Theme.spacing.xs,
-    paddingHorizontal: Theme.spacing.sm,
-    marginRight: Theme.spacing.xs,
-    borderRadius: Theme.borderRadius.md,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginRight: 4,
+    borderRadius: 12,
     backgroundColor: Colors.light.surface,
     width: 48,
     height: 56,
-    ...Theme.shadows.sm,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.light.shadow,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   } as ViewStyle,
   selectedDay: {
     backgroundColor: Colors.light.primary,
   } as ViewStyle,
   dayName: {
-    ...Theme.typography.caption,
     fontSize: 12,
     color: Colors.light.textSecondary,
     marginBottom: 2,
     fontWeight: '500',
   } as TextStyle,
   dayDate: {
-    ...Theme.typography.subtitle,
     fontSize: 16,
     fontWeight: '600',
     color: Colors.light.text,
@@ -461,29 +575,39 @@ const styles = StyleSheet.create({
     color: Colors.light.background,
   } as TextStyle,
   nutritionSummary: {
-    margin: Theme.spacing.lg,
-    marginTop: Theme.spacing.md,
-    padding: Theme.spacing.lg,
+    margin: 24,
+    marginTop: 16,
+    padding: 24,
     backgroundColor: Colors.light.card,
-    borderRadius: Theme.borderRadius.lg,
-    ...Theme.shadows.md,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.light.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   } as ViewStyle,
   summaryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Theme.spacing.lg,
+    marginBottom: 24,
   } as ViewStyle,
   editButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: Theme.spacing.sm,
-    borderRadius: Theme.borderRadius.sm,
+    padding: 8,
+    borderRadius: 8,
   } as ViewStyle,
   editButtonText: {
-    ...Theme.typography.caption,
+    fontSize: 14,
     color: Colors.light.primary,
-    marginLeft: Theme.spacing.xs,
+    marginLeft: 4,
   } as TextStyle,
   macroContainer: {
     flexDirection: 'row',
@@ -493,90 +617,112 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   } as ViewStyle,
   macroValue: {
-    ...Theme.typography.subtitle,
+    fontSize: 18,
+    fontWeight: '600',
     color: Colors.light.text,
   } as TextStyle,
   macroLabel: {
-    ...Theme.typography.caption,
+    fontSize: 14,
     color: Colors.light.textSecondary,
-    marginTop: Theme.spacing.xs,
+    marginTop: 4,
   } as TextStyle,
   mealsSection: {
-    padding: Theme.spacing.lg,
+    padding: 24,
   } as ViewStyle,
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Theme.spacing.md,
+    marginBottom: 16,
   } as ViewStyle,
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.light.primary,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
-    borderRadius: Theme.borderRadius.xl,
-    ...Theme.shadows.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.light.shadow,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   } as ViewStyle,
   addButtonText: {
-    ...Theme.typography.caption,
+    fontSize: 14,
     color: Colors.light.background,
-    marginLeft: Theme.spacing.xs,
+    marginLeft: 4,
     fontWeight: '600',
   } as TextStyle,
   mealCardContainer: {
-    marginBottom: Theme.spacing.md,
+    marginBottom: 16,
     opacity: 0.99,
   } as ViewStyle,
   mealCard: {
     backgroundColor: Colors.light.card,
-    borderRadius: Theme.borderRadius.lg,
-    padding: Theme.spacing.lg,
-    ...Theme.shadows.sm,
+    borderRadius: 16,
+    padding: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.light.shadow,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   } as ViewStyle,
   mealInfo: {
     flex: 1,
     flexDirection: 'column',
   } as ViewStyle,
   mealTime: {
-    ...Theme.typography.caption,
+    fontSize: 14,
     color: Colors.light.primary,
     fontWeight: '600',
   } as TextStyle,
   mealName: {
-    ...Theme.typography.subtitle,
+    fontSize: 18,
+    fontWeight: '600',
     color: Colors.light.text,
-    marginVertical: Theme.spacing.xs,
+    marginVertical: 4,
   } as TextStyle,
   mealMacros: {
-    ...Theme.typography.caption,
+    fontSize: 14,
     color: Colors.light.textSecondary,
   } as TextStyle,
   mealEditButton: {
-    padding: Theme.spacing.sm,
+    padding: 8,
   } as ViewStyle,
   content: {
     flex: 1,
   } as ViewStyle,
   foodList: {
-    marginTop: Theme.spacing.xs,
+    marginTop: 4,
   } as ViewStyle,
   foodItem: {
-    ...Theme.typography.body,
+    fontSize: 16,
     color: Colors.light.textSecondary,
-    marginBottom: Theme.spacing.xs,
+    marginBottom: 4,
   } as TextStyle,
   caloriesBadgeContainer: {
     backgroundColor: Colors.light.successLight,
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.xs,
-    borderRadius: Theme.borderRadius.xl,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    borderRadius: 24,
     alignSelf: 'flex-start',
-    marginTop: Theme.spacing.xs,
+    marginTop: 4,
   } as ViewStyle,
   caloriesText: {
-    ...Theme.typography.caption,
+    fontSize: 14,
     color: Colors.light.success,
     fontWeight: '600',
   } as TextStyle,

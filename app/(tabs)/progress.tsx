@@ -130,6 +130,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.light.background,
+    paddingBottom: 80,
   },
   header: {
     padding: 20,
@@ -143,6 +144,7 @@ const styles = StyleSheet.create({
   },
   section: {
     padding: 20,
+    marginBottom: 10,
   },
   sectionHeader: {
     flexDirection: 'row',

@@ -1,25 +1,67 @@
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions, AccessibilityInfo, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { 
+  FadeInUp, 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withSpring,
+  interpolate,
+  withTiming
+} from 'react-native-reanimated';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
-interface StatCardProps {
+// Enhanced accessibility props interface
+interface AccessibleTouchableProps {
+  accessibilityLabel: string;
+  accessibilityHint?: string;
+  accessibilityRole: 'button' | 'header' | 'text' | 'image';
+}
+
+interface StatCardProps extends AccessibleTouchableProps {
   title: string;
   value: string;
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color }) => (
-  <Animated.View entering={FadeInUp.delay(200)} style={[styles.statCard, { backgroundColor: color }]}>
-    <Ionicons name={icon} size={24} color="white" />
-    <Text style={styles.statValue}>{value}</Text>
-    <Text style={styles.statTitle}>{title}</Text>
-  </Animated.View>
-);
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, ...accessibilityProps }) => {
+  const scale = useSharedValue(1);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }]
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95);
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1);
+  };
+
+  return (
+    <TouchableOpacity 
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      {...accessibilityProps}
+    >
+      <Animated.View 
+        entering={FadeInUp.springify().damping(15)}
+        style={[styles.statCard, { backgroundColor: color }, animatedStyle]}
+      >
+        <Ionicons name={icon} size={24} color="white" />
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statTitle}>{title}</Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
 
 interface ActionCardProps {
   title: string;
@@ -44,6 +86,38 @@ const ActionCard: React.FC<ActionCardProps> = ({ title, description, icon, onPre
 );
 
 export default function DashboardScreen() {
+  const insets = useSafeAreaInsets();
+  const scrollY = useSharedValue(0);
+  const headerOpacity = useSharedValue(1);
+  const router = useRouter();
+
+  useFocusEffect(
+    useCallback(() => {
+      // Announce screen to screen readers
+      AccessibilityInfo.announceForAccessibility('Dashboard screen loaded');
+      
+      // Reset animations
+      headerOpacity.value = withTiming(1);
+      return () => {
+        headerOpacity.value = withTiming(0);
+      };
+    }, [])
+  );
+
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [
+      {
+        translateY: interpolate(
+          scrollY.value,
+          [0, 100],
+          [0, -20],
+          'clamp'
+        )
+      }
+    ]
+  }));
+
   const handleActionPress = (action: string) => {
     console.log(`${action} pressed`);
     // Implement navigation or action handling
@@ -53,18 +127,45 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
       
-      {/* Header Section */}
-      <View style={styles.header}>
+      <Animated.View style={[styles.header, headerAnimatedStyle]}>
         <View style={styles.headerContent}>
-          <Text style={styles.greeting}>Welcome back!</Text>
-          <Text style={styles.name}>John Doe</Text>
+          <Text 
+            style={styles.greeting}
+            accessibilityRole="text"
+          >
+            Welcome back!
+          </Text>
+          <Text 
+            style={styles.name}
+            accessibilityRole="header"
+          >
+            John Doe
+          </Text>
         </View>
-        <TouchableOpacity style={styles.profileButton}>
+        <TouchableOpacity 
+          style={styles.profileButton}
+          accessibilityLabel="View profile"
+          accessibilityRole="button"
+        >
           <Ionicons name="person-circle-outline" size={40} color="white" />
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: Math.min(width * 0.02, 8),
+            paddingBottom: insets.bottom + Math.min(width * 0.1, 40)
+          }
+        ]}
+        showsVerticalScrollIndicator={false}
+        onScroll={useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+          scrollY.value = event.nativeEvent.contentOffset.y;
+        }, [])}
+        scrollEventThrottle={16}
+      >
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
           <StatCard
@@ -72,26 +173,58 @@ export default function DashboardScreen() {
             value="22.5"
             icon="body-outline"
             color="#58CC02"
+            accessibilityLabel="Current BMI is 22.5"
+            accessibilityRole="text"
           />
           <StatCard
             title="Daily Calories"
             value="2100"
             icon="flame-outline"
             color="#FF9500"
+            accessibilityLabel="Daily calories target is 2100"
+            accessibilityRole="text"
           />
           <StatCard
             title="Water Intake"
             value="2.5L"
             icon="water-outline"
             color="#32ADE6"
+            accessibilityLabel="Water intake is 2.5 liters"
+            accessibilityRole="text"
           />
           <StatCard
             title="Activity"
             value="Active"
             icon="fitness-outline"
             color="#AF52DE"
+            accessibilityLabel="Activity level is Active"
+            accessibilityRole="text"
           />
         </View>
+
+        {/* Prepare a Plan Special Box */}
+        <TouchableOpacity 
+          onPress={() => router.push('/prepare-plan')}
+          style={styles.preparePlanCard}
+          accessibilityLabel="Prepare a personalized meal plan"
+          accessibilityRole="button"
+        >
+          <Animated.View 
+            entering={FadeInUp.delay(500)}
+            style={styles.preparePlanContent}
+          >
+            <View style={styles.preparePlanIconContainer}>
+              <Ionicons name="restaurant-outline" size={32} color="#FFFFFF" />
+            </View>
+            <View style={styles.preparePlanTextContainer}>
+              <Text style={styles.preparePlanTitle}>Prepare a Plan</Text>
+              <Text style={styles.preparePlanDescription}>
+                Create a personalized meal plan based on your profile and preferences
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+          </Animated.View>
+        </TouchableOpacity>
 
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -119,7 +252,7 @@ export default function DashboardScreen() {
           icon="trending-up-outline"
           onPress={() => handleActionPress('progress')}
         />
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -139,6 +272,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: Math.min(width * 0.05, 20),
   },
   headerContent: {
     flex: 1,
@@ -157,15 +305,11 @@ const styles = StyleSheet.create({
   profileButton: {
     marginLeft: 20,
   },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 30,
+    marginBottom: Math.min(width * 0.06, 24),
   },
   statCard: {
     width: (width - 50) / 2,
@@ -182,6 +326,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+    backfaceVisibility: 'hidden', // Performance optimization
   },
   statValue: {
     color: 'white',
@@ -243,5 +388,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
+  },
+  preparePlanCard: {
+    marginHorizontal: 24,
+    marginBottom: 24,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#58CC02',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  preparePlanContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+  },
+  preparePlanIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  preparePlanTextContainer: {
+    flex: 1,
+  },
+  preparePlanTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  preparePlanDescription: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 20,
   },
 }); 

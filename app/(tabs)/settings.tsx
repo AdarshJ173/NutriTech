@@ -4,11 +4,12 @@ import { StyleSheet, TouchableOpacity, Platform, Alert, Dimensions, ScrollView, 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInDown, FadeIn, SlideInRight, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn, SlideInRight, useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import * as NavigationBar from 'expo-navigation-bar';
+import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -20,44 +21,44 @@ const { width, height } = Dimensions.get('window');
 // Theme Configuration
 const theme = {
   light: {
-    primary: '#58CC02',
-    secondary: '#32ADE6',
-    accent: '#AF52DE',
-    warning: '#FF9500',
-    background: ['#F8F9FA', '#F4F6F8'] as const,
-    surface: ['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.9)'] as const,
+    primary: '#2E7D32',
+    secondary: '#1976D2',
+    accent: '#9C27B0',
+    warning: '#F57C00',
+    background: ['#FFFFFF', '#F5F5F5'] as const,
+    surface: ['rgba(255, 255, 255, 0.98)', 'rgba(255, 255, 255, 0.95)'] as const,
     text: {
-      primary: '#1A1A1A',
-      secondary: '#666666',
-      tertiary: 'rgba(26, 26, 26, 0.5)',
+      primary: '#212121',
+      secondary: '#424242',
+      tertiary: 'rgba(33, 33, 33, 0.6)',
     },
     card: '#FFFFFF',
-    border: 'rgba(0, 0, 0, 0.1)',
-    danger: '#FF453A',
-    success: '#58CC02',
+    border: 'rgba(0, 0, 0, 0.12)',
+    danger: '#D32F2F',
+    success: '#2E7D32',
   },
   dark: {
-    primary: '#58CC02',
-    secondary: '#32ADE6',
-    accent: '#AF52DE',
-    warning: '#FF9500',
-    background: ['#FFFFFF', '#F8F9FA'] as const,
-    surface: ['rgba(255, 255, 255, 0.95)', 'rgba(245, 245, 245, 0.9)'] as const,
+    primary: '#4CAF50',
+    secondary: '#42A5F5',
+    accent: '#BA68C8',
+    warning: '#FFA726',
+    background: ['#121212', '#1E1E1E'] as const,
+    surface: ['rgba(30, 30, 30, 0.98)', 'rgba(30, 30, 30, 0.95)'] as const,
     text: {
-      primary: '#1A1A1A',
-      secondary: '#666666',
-      tertiary: 'rgba(26, 26, 26, 0.5)',
+      primary: '#FFFFFF',
+      secondary: '#E0E0E0',
+      tertiary: 'rgba(255, 255, 255, 0.7)',
     },
-    card: '#FFFFFF',
-    border: 'rgba(0, 0, 0, 0.1)',
-    danger: '#FF453A',
-    success: '#58CC02',
+    card: '#1E1E1E',
+    border: 'rgba(255, 255, 255, 0.12)',
+    danger: '#EF5350',
+    success: '#4CAF50',
   },
 };
 
 // Reusable Components
 interface MenuItemProps {
-  icon: string;
+  icon: keyof typeof FontAwesome.glyphMap | keyof typeof Ionicons.glyphMap;
   iconType?: 'Ionicons' | 'FontAwesome';
   title: string;
   subtitle?: string;
@@ -85,26 +86,58 @@ const MenuItem = ({
   const isDark = colorScheme === 'dark';
   const [isPressed, setIsPressed] = useState(false);
   const colors = isDark ? theme.dark : theme.light;
+  const hapticFeedback = useHapticFeedback();
+
+  const scaleAnimation = useSharedValue(1);
+  const opacityAnimation = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: withSpring(isPressed ? 0.98 : 1) }],
+    transform: [{ scale: scaleAnimation.value }],
+    opacity: opacityAnimation.value,
   }));
+
+  const handlePressIn = useCallback(() => {
+    setIsPressed(true);
+    hapticFeedback.impactAsync(hapticFeedback.ImpactFeedbackStyle.Light);
+    scaleAnimation.value = withSpring(0.98, {
+      mass: 0.5,
+      damping: 12,
+      stiffness: 100
+    });
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    setIsPressed(false);
+    scaleAnimation.value = withSpring(1, {
+      mass: 0.5,
+      damping: 12,
+      stiffness: 100
+    });
+  }, []);
 
   const IconComponent = iconType === 'Ionicons' ? Ionicons : FontAwesome;
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(delay).springify()}
+      entering={FadeInDown.delay(delay).springify().duration(400)}
       style={[animatedStyle, styles.menuItemContainer]}
     >
       <Pressable
+        accessible={true}
+        accessibilityRole={isToggle ? "switch" : "button"}
+        accessibilityState={{ 
+          checked: isToggle ? isToggled : undefined,
+          disabled: !onPress
+        }}
+        accessibilityLabel={`${title}${subtitle ? `, ${subtitle}` : ''}${value ? `, ${value}` : ''}`}
+        accessibilityHint={isToggle ? `Double tap to ${isToggled ? 'disable' : 'enable'} ${title}` : `Double tap to open ${title}`}
         style={[
           styles.menuItem,
           isDanger && { backgroundColor: `${colors.danger}10` },
           { borderColor: colors.border }
         ]}
-        onPressIn={() => setIsPressed(true)}
-        onPressOut={() => setIsPressed(false)}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         onPress={onPress}
       >
         <LinearGradient
@@ -117,24 +150,36 @@ const MenuItem = ({
           style={StyleSheet.absoluteFill}
         />
         
-        <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
+        <View 
+          style={[
+            styles.iconContainer, 
+            { backgroundColor: `${colors.primary}15` }
+          ]}
+          accessibilityElementsHidden={true}
+          importantForAccessibility="no"
+        >
           <IconComponent
-            // @ts-ignore
-            name={icon}
+            name={icon as any}
             size={20}
             color={isDanger ? colors.danger : colors.primary}
           />
         </View>
         
         <View style={styles.menuItemContent}>
-          <ThemedText style={[
-            styles.menuItemTitle,
-            isDanger && { color: colors.danger }
-          ]}>
+          <ThemedText 
+            style={[
+              styles.menuItemTitle,
+              isDanger && { color: colors.danger }
+            ]}
+            accessibilityRole="header"
+          >
             {title}
           </ThemedText>
           {subtitle && (
-            <ThemedText style={styles.menuItemSubtitle}>
+            <ThemedText 
+              style={styles.menuItemSubtitle}
+              accessibilityRole="text"
+            >
               {subtitle}
             </ThemedText>
           )}
@@ -150,16 +195,24 @@ const MenuItem = ({
             }}
             thumbColor={isToggled ? colors.primary : isDark ? '#FFFFFF' : '#F4F4F4'}
             ios_backgroundColor={isDark ? '#3A3A3A' : '#E0E0E0'}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: isToggled }}
           />
         ) : value ? (
-          <View style={styles.valueContainer}>
+          <View 
+            style={styles.valueContainer}
+            accessibilityElementsHidden={true}
+          >
             <ThemedText style={styles.valueText}>{value}</ThemedText>
-            {/* @ts-ignore */}
-            <IconComponent name="chevron-right" size={16} color={colors.text.tertiary} />
+            <IconComponent name={'chevron-right' as any} size={16} color={colors.text.tertiary} />
           </View>
         ) : (
-          // @ts-ignore
-          <IconComponent name="chevron-right" size={16} color={colors.text.tertiary} />
+          <IconComponent 
+            name={'chevron-right' as any}
+            size={16} 
+            color={colors.text.tertiary}
+            accessibilityElementsHidden={true}
+          />
         )}
       </Pressable>
     </Animated.View>
@@ -198,8 +251,8 @@ export default function SettingsScreen() {
   // Update system UI colors when theme changes
   useEffect(() => {
     if (Platform.OS === 'android') {
-      NavigationBar.setBackgroundColorAsync(darkMode ? '#FFFFFF' : '#F4F6F8');
-      NavigationBar.setButtonStyleAsync('dark');
+      NavigationBar.setBackgroundColorAsync(darkMode ? colors.background[0] : colors.background[0]);
+      NavigationBar.setButtonStyleAsync(darkMode ? 'light' : 'dark');
     }
   }, [darkMode]);
 
@@ -210,8 +263,6 @@ export default function SettingsScreen() {
 
   const toggleTheme = useCallback(() => {
     setDarkMode(prev => !prev);
-    // Here you would typically dispatch an action to update the app-wide theme
-    // For example: dispatch(setTheme(!darkMode));
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -245,33 +296,19 @@ export default function SettingsScreen() {
   }, [router]);
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[colors.primary, colors.primary]}
-        style={[styles.headerBackground, { height: insets.top + 120 }]}
-      />
-      
-      <View style={[
-        styles.header,
-        { paddingTop: insets.top + 20 }
-      ]}>
-        <Animated.View entering={FadeIn.delay(100)}>
-          <ThemedText style={styles.headerTitle}>Settings</ThemedText>
-          <ThemedText style={[styles.headerSubtitle, { color: 'rgba(255, 255, 255, 0.8)' }]}>
-            Customize your experience
-          </ThemedText>
-        </Animated.View>
-      </View>
-
+    <ThemedView style={[styles.container, { backgroundColor: colors.background[0] }]}>
       <ScrollView
-        style={[styles.scrollView, { backgroundColor: colors.background[0] }]}
+        style={[styles.scrollView]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 40 }
+          { 
+            paddingTop: insets.top + Math.min(width * 0.02, 8),
+            paddingBottom: insets.bottom + Math.min(width * 0.1, 40) 
+          }
         ]}
       >
-        <Section title="Profile" delay={200}>
+        <Section title="Profile" delay={100}>
           <View style={[styles.profileCard, { backgroundColor: colors.card }]}>
             <View style={styles.profileImageContainer}>
               <Image
@@ -297,7 +334,7 @@ export default function SettingsScreen() {
           </View>
         </Section>
 
-        <Section title="Preferences" delay={300}>
+        <Section title="Preferences" delay={200}>
           <MenuItem
             icon="bell"
             title="Notifications"
@@ -324,7 +361,7 @@ export default function SettingsScreen() {
           />
         </Section>
 
-        <Section title="Account" delay={400}>
+        <Section title="Account" delay={300}>
           <MenuItem
             icon="user"
             title="Personal Information"
@@ -343,7 +380,7 @@ export default function SettingsScreen() {
           />
         </Section>
 
-        <Section title="Support" delay={500}>
+        <Section title="Support" delay={400}>
           <MenuItem
             icon="question-circle"
             title="Help Center"
@@ -384,72 +421,44 @@ export default function SettingsScreen() {
           </ThemedText>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  headerBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  header: {
-    padding: 20,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 34,
-    fontWeight: '800',
-    marginBottom: 8,
-    color: '#FFFFFF',
-    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    opacity: 0.7,
-    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
   },
   scrollView: {
     flex: 1,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    marginTop: -30,
   },
   scrollContent: {
-    padding: 20,
+    padding: Math.min(width * 0.05, 20),
   },
   section: {
-    marginBottom: 24,
+    marginBottom: Math.min(width * 0.06, 24),
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: Math.min(width * 0.05, 20),
     fontWeight: '600',
-    marginBottom: 16,
-    marginLeft: 12,
+    marginBottom: Math.min(width * 0.04, 16),
+    marginLeft: Math.min(width * 0.03, 12),
     opacity: 0.8,
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
   },
   sectionContent: {
-    borderRadius: 16,
+    borderRadius: Math.min(width * 0.04, 16),
     overflow: 'hidden',
   },
   menuItemContainer: {
-    marginBottom: 10,
+    marginBottom: Math.min(width * 0.025, 10),
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: Math.min(width * 0.04, 16),
     backgroundColor: '#FFFFFF',
-    borderRadius: 15,
+    borderRadius: Math.min(width * 0.0375, 15),
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -460,25 +469,25 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   iconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: Math.min(width * 0.125, 50),
+    height: Math.min(width * 0.125, 50),
+    borderRadius: Math.min(width * 0.0625, 25),
     justifyContent: 'center',
     alignItems: 'center',
   },
   menuItemContent: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: Math.min(width * 0.04, 16),
   },
   menuItemTitle: {
-    fontSize: 16,
+    fontSize: Math.min(width * 0.04, 16),
     fontWeight: '600',
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
   },
   menuItemSubtitle: {
-    fontSize: 14,
+    fontSize: Math.min(width * 0.035, 14),
     color: '#666',
-    marginTop: 2,
+    marginTop: Math.min(width * 0.005, 2),
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
   },
   valueContainer: {
@@ -486,15 +495,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   valueText: {
-    fontSize: 14,
+    fontSize: Math.min(width * 0.035, 14),
     color: '#666',
-    marginRight: 8,
+    marginRight: Math.min(width * 0.02, 8),
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
   },
   profileCard: {
     alignItems: 'center',
-    padding: 24,
-    borderRadius: 16,
+    padding: Math.min(width * 0.06, 24),
+    borderRadius: Math.min(width * 0.04, 16),
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: {
@@ -507,20 +516,20 @@ const styles = StyleSheet.create({
   },
   profileImageContainer: {
     position: 'relative',
-    marginBottom: 16,
+    marginBottom: Math.min(width * 0.04, 16),
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: Math.min(width * 0.25, 100),
+    height: Math.min(width * 0.25, 100),
+    borderRadius: Math.min(width * 0.125, 50),
   },
   editPhotoButton: {
     position: 'absolute',
     right: -4,
     bottom: -4,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: Math.min(width * 0.08, 32),
+    height: Math.min(width * 0.08, 32),
+    borderRadius: Math.min(width * 0.04, 16),
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -530,27 +539,27 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   profileName: {
-    fontSize: 24,
+    fontSize: Math.min(width * 0.06, 24),
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: Math.min(width * 0.01, 4),
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
   },
   profileEmail: {
-    fontSize: 16,
+    fontSize: Math.min(width * 0.04, 16),
     opacity: 0.7,
-    marginBottom: 16,
+    marginBottom: Math.min(width * 0.04, 16),
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
   },
   editProfileButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: Math.min(width * 0.04, 16),
+    paddingVertical: Math.min(width * 0.02, 8),
+    borderRadius: Math.min(width * 0.05, 20),
   },
   editProfileText: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: Math.min(width * 0.02, 8),
+    fontSize: Math.min(width * 0.035, 14),
     fontWeight: '500',
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
   },
@@ -558,9 +567,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 15,
-    marginHorizontal: 12,
+    padding: Math.min(width * 0.04, 16),
+    borderRadius: Math.min(width * 0.0375, 15),
+    marginHorizontal: Math.min(width * 0.03, 12),
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -572,18 +581,18 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: Math.min(width * 0.04, 16),
     fontWeight: '600',
-    marginLeft: 12,
+    marginLeft: Math.min(width * 0.03, 12),
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
   },
   deleteAccountButton: {
     alignItems: 'center',
-    padding: 16,
-    marginTop: 8,
+    padding: Math.min(width * 0.04, 16),
+    marginTop: Math.min(width * 0.02, 8),
   },
   deleteAccountText: {
-    fontSize: 14,
+    fontSize: Math.min(width * 0.035, 14),
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
   },
 });

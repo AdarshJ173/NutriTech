@@ -1,0 +1,585 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Platform,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
+
+interface UserProfile {
+  name: string;
+  age: string;
+  sex: string;
+  height: string;
+  weight: string;
+  bmi: string;
+  location: string;
+}
+
+interface MealPlan {
+  dailyCalorieTarget: number;
+  dailyProteinTarget: number;
+  dailyCarbTarget: number;
+  dailyFatTarget: number;
+  mealPlan: {
+    breakfast: MealOption[];
+    lunch: MealOption[];
+    dinner: MealOption[];
+    snacks: MealOption[];
+  };
+  localConsiderations: string;
+  dietaryRecommendations: string;
+}
+
+interface MealOption {
+  name: string;
+  ingredients: string[];
+  preparation: string;
+  nutritionalInfo: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  imageUrl?: string;
+}
+
+export default function PreparePlanScreen() {
+  const insets = useSafeAreaInsets();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [dietaryPreferences, setDietaryPreferences] = useState('');
+  const [currentDiet, setCurrentDiet] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [generatedPlan, setGeneratedPlan] = useState<MealPlan | null>(null);
+
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      const profileData = await AsyncStorage.getItem('userProfile');
+      if (profileData) {
+        setUserProfile(JSON.parse(profileData));
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    }
+  };
+
+  const generateMealPlan = async () => {
+    if (!userProfile) {
+      Alert.alert('Error', 'Please complete your profile first');
+      return;
+    }
+
+    if (!dietaryPreferences.trim() || !currentDiet.trim()) {
+      Alert.alert('Error', 'Please fill in both dietary preferences and current diet information');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyA5ofUIdJnHEOuZWeFw6An5b9alGZdHzOE', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `Generate a personalized meal plan based on the following information:
+
+User Profile:
+- Name: ${userProfile.name}
+- Age: ${userProfile.age}
+- Sex: ${userProfile.sex}
+- Height: ${userProfile.height} cm
+- Weight: ${userProfile.weight} kg
+- BMI: ${userProfile.bmi}
+- Location: ${userProfile.location}
+
+Dietary Preferences: ${dietaryPreferences}
+Current Diet: ${currentDiet}
+
+Generate a JSON response with the following structure:
+{
+  "dailyCalorieTarget": 2000,
+  "dailyProteinTarget": 150,
+  "dailyCarbTarget": 200,
+  "dailyFatTarget": 70,
+  "mealPlan": {
+    "breakfast": [{
+      "name": "Healthy Breakfast",
+      "ingredients": ["ingredient1", "ingredient2"],
+      "preparation": "Step by step instructions",
+      "nutritionalInfo": {
+        "calories": 500,
+        "protein": 30,
+        "carbs": 45,
+        "fat": 20
+      }
+    }],
+    "lunch": [{
+      "name": "Healthy Lunch",
+      "ingredients": ["ingredient1", "ingredient2"],
+      "preparation": "Step by step instructions",
+      "nutritionalInfo": {
+        "calories": 600,
+        "protein": 40,
+        "carbs": 50,
+        "fat": 25
+      }
+    }],
+    "dinner": [{
+      "name": "Healthy Dinner",
+      "ingredients": ["ingredient1", "ingredient2"],
+      "preparation": "Step by step instructions",
+      "nutritionalInfo": {
+        "calories": 500,
+        "protein": 35,
+        "carbs": 40,
+        "fat": 20
+      }
+    }],
+    "snacks": [{
+      "name": "Healthy Snack",
+      "ingredients": ["ingredient1", "ingredient2"],
+      "preparation": "Step by step instructions",
+      "nutritionalInfo": {
+        "calories": 200,
+        "protein": 10,
+        "carbs": 25,
+        "fat": 8
+      }
+    }]
+  },
+  "localConsiderations": "Consider local food availability and preferences",
+  "dietaryRecommendations": "Personalized recommendations based on profile"
+}`
+              }]
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('API Error Response:', errorData);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data || !data.candidates || !data.candidates[0]?.content?.parts[0]?.text) {
+        console.error('Invalid API Response:', data);
+        throw new Error('Invalid response format from API');
+      }
+
+      try {
+        const planText = data.candidates[0].content.parts[0].text;
+        console.log('API Response Text:', planText);
+        
+        // Clean the response text to ensure it's valid JSON
+        const cleanedText = planText.trim().replace(/```json\n?|\n?```/g, '');
+        const planJson = JSON.parse(cleanedText);
+        
+        // Validate the response structure
+        if (!planJson.dailyCalorieTarget || !planJson.mealPlan || 
+            !planJson.mealPlan.breakfast || !planJson.mealPlan.lunch || 
+            !planJson.mealPlan.dinner || !planJson.mealPlan.snacks) {
+          console.error('Invalid Plan Structure:', planJson);
+          throw new Error('Invalid meal plan structure');
+        }
+        
+        setGeneratedPlan(planJson);
+        
+        // Save the generated plan to AsyncStorage for future reference
+        try {
+          await AsyncStorage.setItem('lastGeneratedMealPlan', JSON.stringify(planJson));
+        } catch (storageError) {
+          console.error('Error saving meal plan:', storageError);
+        }
+      } catch (parseError) {
+        console.error('Error parsing meal plan:', parseError);
+        Alert.alert(
+          'Error',
+          'Failed to parse the generated meal plan. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error generating meal plan:', error);
+      Alert.alert(
+        'Error',
+        'Failed to generate meal plan. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderMealSection = (title: string, meals: MealOption[]) => {
+    return (
+      <View style={styles.mealSection}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {meals.map((meal, index) => (
+          <View key={index} style={styles.mealCard}>
+            <Text style={styles.mealName}>{meal.name}</Text>
+            <Text style={styles.mealSubtitle}>Ingredients:</Text>
+            {meal.ingredients.map((ingredient, idx) => (
+              <Text key={idx} style={styles.ingredient}>• {ingredient}</Text>
+            ))}
+            <Text style={styles.mealSubtitle}>Preparation:</Text>
+            <Text style={styles.preparation}>{meal.preparation}</Text>
+            <View style={styles.nutritionInfo}>
+              <Text style={styles.nutritionTitle}>Nutritional Information:</Text>
+              <Text style={styles.nutritionText}>Calories: {meal.nutritionalInfo.calories}</Text>
+              <Text style={styles.nutritionText}>Protein: {meal.nutritionalInfo.protein}g</Text>
+              <Text style={styles.nutritionText}>Carbs: {meal.nutritionalInfo.carbs}g</Text>
+              <Text style={styles.nutritionText}>Fat: {meal.nutritionalInfo.fat}g</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const handleBack = () => {
+    router.back();
+  };
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar style="light" />
+      
+      <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={handleBack}
+          style={styles.backButton}
+          hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Prepare Meal Plan</Text>
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <Animated.View entering={FadeInDown.delay(200)} style={styles.inputSection}>
+          <Text style={styles.label}>Dietary Preferences</Text>
+          <TextInput
+            style={styles.input}
+            value={dietaryPreferences}
+            onChangeText={setDietaryPreferences}
+            placeholder="Enter any dietary preferences or restrictions"
+            multiline
+          />
+
+          <Text style={styles.label}>Current Diet</Text>
+          <TextInput
+            style={styles.input}
+            value={currentDiet}
+            onChangeText={setCurrentDiet}
+            placeholder="Describe your current eating habits"
+            multiline
+          />
+
+          <TouchableOpacity
+            style={styles.generateButton}
+            onPress={generateMealPlan}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="restaurant-outline" size={24} color="#FFFFFF" />
+                <Text style={styles.generateButtonText}>Generate Meal Plan</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
+
+        {generatedPlan && (
+          <Animated.View entering={FadeInUp} style={styles.planContainer}>
+            <View style={styles.targetSection}>
+              <Text style={styles.targetTitle}>Daily Nutritional Targets</Text>
+              <View style={styles.targetsGrid}>
+                <View style={styles.targetItem}>
+                  <Text style={styles.targetValue}>{generatedPlan.dailyCalorieTarget}</Text>
+                  <Text style={styles.targetLabel}>Calories</Text>
+                </View>
+                <View style={styles.targetItem}>
+                  <Text style={styles.targetValue}>{generatedPlan.dailyProteinTarget}g</Text>
+                  <Text style={styles.targetLabel}>Protein</Text>
+                </View>
+                <View style={styles.targetItem}>
+                  <Text style={styles.targetValue}>{generatedPlan.dailyCarbTarget}g</Text>
+                  <Text style={styles.targetLabel}>Carbs</Text>
+                </View>
+                <View style={styles.targetItem}>
+                  <Text style={styles.targetValue}>{generatedPlan.dailyFatTarget}g</Text>
+                  <Text style={styles.targetLabel}>Fat</Text>
+                </View>
+              </View>
+            </View>
+
+            {renderMealSection('Breakfast Options', generatedPlan.mealPlan.breakfast)}
+            {renderMealSection('Lunch Options', generatedPlan.mealPlan.lunch)}
+            {renderMealSection('Dinner Options', generatedPlan.mealPlan.dinner)}
+            {renderMealSection('Snack Options', generatedPlan.mealPlan.snacks)}
+
+            <View style={styles.recommendationsSection}>
+              <Text style={styles.recommendationsTitle}>Local Considerations</Text>
+              <Text style={styles.recommendationsText}>{generatedPlan.localConsiderations}</Text>
+              
+              <Text style={styles.recommendationsTitle}>Dietary Recommendations</Text>
+              <Text style={styles.recommendationsText}>{generatedPlan.dietaryRecommendations}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.savePlanButton}
+              onPress={() => router.push('/meal-plan')}
+            >
+              <Ionicons name="calendar-outline" size={24} color="#FFFFFF" />
+              <Text style={styles.savePlanButtonText}>View in Meal Planner</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  header: {
+    backgroundColor: '#58CC02',
+    padding: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginRight: 40,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  inputSection: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 16,
+    fontSize: 16,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  generateButton: {
+    backgroundColor: '#58CC02',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  generateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 10,
+  },
+  planContainer: {
+    marginTop: 20,
+  },
+  targetSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  targetTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+  },
+  targetsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  targetItem: {
+    alignItems: 'center',
+  },
+  targetValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#58CC02',
+  },
+  targetLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  mealSection: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  mealCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 15,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  mealName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  mealSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  ingredient: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 10,
+    marginBottom: 2,
+  },
+  preparation: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginTop: 5,
+  },
+  nutritionInfo: {
+    marginTop: 15,
+    padding: 10,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+  },
+  nutritionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 5,
+  },
+  nutritionText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 2,
+  },
+  recommendationsSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  recommendationsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    marginTop: 15,
+  },
+  recommendationsText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  savePlanButton: {
+    backgroundColor: '#58CC02',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 30,
+  },
+  savePlanButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 10,
+  },
+}); 

@@ -1,51 +1,86 @@
 import { Tabs } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
-import { Platform } from 'react-native';
+import { Platform, Pressable } from 'react-native';
+import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
 const Colors = {
   light: {
+    primary: '#2E7D32',
     tint: '#4CAF50',
     background: '#FFFFFF',
-    text: '#000000',
+    text: '#1A1A1A',
     secondaryText: '#666666',
-    card: '#f5f5f5',
+    inactive: '#9E9E9E',
+    card: '#FFFFFF',
   },
 };
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function TabLayout() {
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors.light.tint,
-        tabBarInactiveTintColor: '#999',
+      screenOptions={({ route }) => ({
+        tabBarActiveTintColor: Colors.light.primary,
+        tabBarInactiveTintColor: Colors.light.inactive,
         tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#f0f0f0',
-          height: Platform.OS === 'ios' ? 88 : 60,
-          paddingBottom: Platform.OS === 'ios' ? 30 : 8,
+          backgroundColor: Colors.light.card,
+          borderTopWidth: 0,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: Platform.OS === 'ios' ? 85 : 65,
+          paddingBottom: Platform.OS === 'ios' ? 25 : 0,
           paddingTop: 8,
-          elevation: 0,
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
+          elevation: 8,
           shadowColor: '#000',
           shadowOffset: {
             width: 0,
-            height: -2,
+            height: -4,
           },
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
         },
         headerShown: false,
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '500',
+          fontWeight: '600',
+          marginTop: 2,
         },
-      }}>
+        tabBarItemStyle: {
+          paddingVertical: 4,
+          marginBottom: Platform.OS === 'ios' ? 12 : 8,
+        },
+        tabBarButton: (props) => {
+          const animatedStyle = useAnimatedStyle(() => {
+            return {
+              transform: [
+                {
+                  scale: withSpring(props.accessibilityState?.selected ? 1.1 : 1, {
+                    damping: 15,
+                    mass: 1,
+                    stiffness: 120,
+                  }),
+                },
+              ],
+            };
+          });
+
+          return (
+            <AnimatedPressable
+              {...props}
+              style={[props.style, animatedStyle]}
+            />
+          );
+        },
+      })}>
       <Tabs.Screen
         name="dashboard"
         options={{
           title: 'Home',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="home" size={size} color={color} />
+            <FontAwesome name="home" size={size - 2} color={color} />
           ),
         }}
       />
@@ -54,8 +89,18 @@ export default function TabLayout() {
         options={{
           title: 'Meal Plan',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="calendar" size={size} color={color} />
+            <FontAwesome name="calendar" size={size - 2} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="prepare-plan"
+        options={{
+          title: 'Prepare Plan',
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome name="cutlery" size={size - 2} color={color} />
+          ),
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -63,7 +108,7 @@ export default function TabLayout() {
         options={{
           title: 'Progress',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="line-chart" size={size} color={color} />
+            <FontAwesome name="line-chart" size={size - 2} color={color} />
           ),
         }}
       />
@@ -72,7 +117,7 @@ export default function TabLayout() {
         options={{
           title: 'Settings',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="cog" size={size} color={color} />
+            <FontAwesome name="cog" size={size - 2} color={color} />
           ),
         }}
       />

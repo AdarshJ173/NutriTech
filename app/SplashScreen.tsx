@@ -1,17 +1,20 @@
 import React, { useEffect } from 'react';
-import { View, Image, StyleSheet, Dimensions, Animated } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen() {
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
+  const scaleAnim = React.useRef(new Animated.Value(0.8)).current;
+  const rotateAnim = React.useRef(new Animated.Value(0)).current;
+  const slideAnim = React.useRef(new Animated.Value(-50)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
+        duration: 1000,
         useNativeDriver: true,
       }),
       Animated.spring(scaleAnim, {
@@ -19,27 +22,62 @@ export default function SplashScreen() {
         tension: 20,
         friction: 7,
         useNativeDriver: true,
-      })
+      }),
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 30,
+        friction: 8,
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, [fadeAnim, scaleAnim]);
+  }, []);
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
     <View style={styles.container}>
-      <Animated.View 
-        style={[
-          styles.logoContainer,
-          {
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }]
-          }
-        ]}
+      <LinearGradient
+        colors={['rgba(58, 183, 149, 0.61)', 'rgba(160, 232, 175, 0.97)', 'rgba(160, 232, 175, 0.97)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.gradient}
       >
-        <Image
-          source={require('../assets/images/logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </Animated.View>
+        <Animated.View 
+          style={[
+            styles.circleContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { scale: scaleAnim },
+                { translateY: slideAnim },
+                { rotate: spin }
+              ]
+            }
+          ]}
+        >
+          <View style={styles.circle}>
+            <Animated.Text 
+              style={[
+                styles.text,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ scale: scaleAnim }]
+                }
+              ]}
+            >
+              Nutrify
+            </Animated.Text>
+          </View>
+        </Animated.View>
+      </LinearGradient>
     </View>
   );
 }
@@ -47,18 +85,33 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+  },
+  gradient: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoContainer: {
-    width: width * 0.7,
-    height: height * 0.3,
+  circleContainer: {
+    width: 214,
+    height: 214,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logo: {
-    width: '100%',
-    height: '100%',
+  circle: {
+    width: 214,
+    height: 214,
+    borderRadius: 107,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  text: {
+    fontFamily: 'Inter',
+    fontWeight: '800',
+    fontSize: 32,
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
 }); 
