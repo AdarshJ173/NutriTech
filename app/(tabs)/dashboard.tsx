@@ -28,9 +28,64 @@ interface StatCardProps extends AccessibleTouchableProps {
   value: string;
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
+  showBmiStatus?: boolean;
+  showCalorieStatus?: boolean;
+  bmiValue?: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, ...accessibilityProps }) => {
+const getBmiStatus = (bmi: number): { status: string; color: string } => {
+  if (bmi < 18.5) return { status: 'Underweight', color: '#FFB74D' };
+  if (bmi < 24.9) return { status: 'Healthy', color: '#81C784' };
+  if (bmi < 29.9) return { status: 'Overweight', color: '#FF8A65' };
+  return { status: 'Obese', color: '#E57373' };
+};
+
+// Calculate daily calorie needs based on BMI
+// Using Mifflin-St Jeor Equation with moderate activity level
+const calculateDailyCalories = (bmi: number): { calories: number; status: string; color: string } => {
+  // Base calorie calculation (assuming average height of 170cm and moderate activity)
+  let baseWeight = 170 * 170 * bmi / 10000; // Calculate weight from BMI
+  let baseCalories = (10 * baseWeight) + (6.25 * 170) - (5 * 30) + 5; // Using average age of 30
+  baseCalories *= 1.55; // Moderate activity multiplier
+
+  // Adjust calories based on BMI status
+  if (bmi < 18.5) {
+    return {
+      calories: Math.round(baseCalories * 1.2), // Increase for weight gain
+      status: 'Gain Weight',
+      color: '#FFB74D'
+    };
+  } else if (bmi < 24.9) {
+    return {
+      calories: Math.round(baseCalories),
+      status: 'Maintain',
+      color: '#81C784'
+    };
+  } else if (bmi < 29.9) {
+    return {
+      calories: Math.round(baseCalories * 0.85), // Decrease for weight loss
+      status: 'Reduce',
+      color: '#FF8A65'
+    };
+  } else {
+    return {
+      calories: Math.round(baseCalories * 0.7), // Significant decrease for weight loss
+      status: 'Weight Loss',
+      color: '#E57373'
+    };
+  }
+};
+
+const StatCard: React.FC<StatCardProps> = ({ 
+  title, 
+  value, 
+  icon, 
+  color, 
+  showBmiStatus = false,
+  showCalorieStatus = false,
+  bmiValue = "0",
+  ...accessibilityProps 
+}) => {
   const scale = useSharedValue(1);
   
   const animatedStyle = useAnimatedStyle(() => ({
@@ -45,6 +100,9 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, ...acces
     scale.value = withSpring(1);
   };
 
+  const bmiStatus = showBmiStatus ? getBmiStatus(parseFloat(value)) : null;
+  const calorieInfo = showCalorieStatus ? calculateDailyCalories(parseFloat(bmiValue)) : null;
+
   return (
     <TouchableOpacity 
       onPressIn={handlePressIn}
@@ -55,9 +113,33 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, ...acces
         entering={FadeInUp.springify().damping(15)}
         style={[styles.statCard, { backgroundColor: color }, animatedStyle]}
       >
-        <Ionicons name={icon} size={24} color="white" />
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statTitle}>{title}</Text>
+        {showBmiStatus && (
+          <View style={styles.bmiStatusContainer}>
+            <Text style={[styles.bmiStatus, { color: bmiStatus?.color }]}>
+              {bmiStatus?.status}
+            </Text>
+          </View>
+        )}
+        {showCalorieStatus && calorieInfo && (
+          <View style={styles.bmiStatusContainer}>
+            <Text style={[styles.bmiStatus, { color: calorieInfo.color }]}>
+              {calorieInfo.status}
+            </Text>
+          </View>
+        )}
+        <View style={[
+          styles.statContent, 
+          (showBmiStatus || showCalorieStatus) && styles.statContentWithStatus
+        ]}>
+          <Ionicons name={icon} size={24} color="white" />
+          <Text style={styles.statValue}>
+            {showCalorieStatus ? `${calorieInfo?.calories}` : value}
+          </Text>
+          <Text style={styles.statTitle}>{title}</Text>
+          {showCalorieStatus && (
+            <Text style={styles.calorieSubtext}>calories/day</Text>
+          )}
+        </View>
       </Animated.View>
     </TouchableOpacity>
   );
@@ -129,7 +211,7 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar hidden={true} />
       
       <Animated.View style={[styles.header, headerAnimatedStyle]}>
         <View style={styles.headerContent}>
@@ -176,17 +258,20 @@ export default function DashboardScreen() {
             title="Current BMI"
             value="22.5"
             icon="body-outline"
-            color="#58CC02"
+            color="#52734D"
             accessibilityLabel="Current BMI is 22.5"
             accessibilityRole="text"
+            showBmiStatus={true}
           />
           <StatCard
             title="Daily Calories"
             value="2100"
             icon="flame-outline"
-            color="#FF9500"
-            accessibilityLabel="Daily calories target is 2100"
+            color="#52734D"
+            accessibilityLabel="Recommended daily calories"
             accessibilityRole="text"
+            showCalorieStatus={true}
+            bmiValue="22.5"
           />
           <StatCard
             title="Water Intake"
@@ -264,15 +349,15 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#FEFFDE', // Light background from palette
   },
   header: {
-    backgroundColor: '#58CC02',
+    backgroundColor: '#52734D', // Dark green from palette
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingBottom: 30,
+    paddingHorizontal: 24,
+    borderBottomLeftRadius: 35,
+    borderBottomRightRadius: 35,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -280,84 +365,122 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: Math.min(width * 0.05, 20),
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
   },
   headerContent: {
     flex: 1,
   },
   greeting: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 16,
+    color: '#DDFFBC', // Light accent from palette
+    fontSize: 18,
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
+    letterSpacing: 0.5,
   },
   name: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
+    color: '#FEFFDE', // Lightest shade from palette
+    fontSize: 28,
+    fontWeight: '700',
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
+    letterSpacing: 0.5,
+    marginTop: 4,
   },
-  profileButton: {
-    marginLeft: 20,
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: Math.min(width * 0.06, 24),
+    paddingBottom: Platform.OS === 'ios' ? 100 : 80,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: Math.min(width * 0.06, 24),
+    marginBottom: Math.min(width * 0.08, 32),
+    marginTop: 12,
   },
   statCard: {
-    width: (width - 50) / 2,
-    padding: 15,
-    borderRadius: 20,
-    marginBottom: 10,
+    width: (width - 60) / 2,
+    padding: 16,
+    borderRadius: 25,
+    marginBottom: 16,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 3,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    backfaceVisibility: 'hidden', // Performance optimization
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 7,
+    backfaceVisibility: 'hidden',
+    backgroundColor: '#91C788',
+    position: 'relative',
+    minHeight: 180,
+  },
+  statContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingTop: 8,
+  },
+  statContentWithStatus: {
+    paddingTop: 32,
+  },
+  bmiStatusContainer: {
+    position: 'absolute',
+    top: 8,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  bmiStatus: {
+    fontSize: 12,
+    fontWeight: '600',
+    backgroundColor: 'rgba(254, 255, 222, 0.95)',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 12,
+    overflow: 'hidden',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   statValue: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: 10,
+    color: '#FEFFDE',
+    fontSize: 26,
+    fontWeight: '700',
+    marginTop: 8,
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
+    letterSpacing: 0.5,
   },
   statTitle: {
-    color: 'white',
+    color: '#E0FBE2',
     fontSize: 14,
-    opacity: 0.8,
-    marginTop: 5,
+    fontWeight: '500',
+    marginTop: 4,
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
+    letterSpacing: 0.3,
+    textAlign: 'center',
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#1A1A1A',
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 20,
+    color: '#52734D', // Dark green from palette
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
+    letterSpacing: 0.5,
+    marginTop: 8,
   },
   actionCard: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 10,
+    backgroundColor: '#E0FBE2', // Light green from palette
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
@@ -365,75 +488,101 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 4,
   },
   actionIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(88, 204, 2, 0.1)',
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#91C788', // Medium green from palette
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 18,
   },
   actionTextContainer: {
     flex: 1,
   },
   actionTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 4,
+    color: '#52734D', // Dark green from palette
+    marginBottom: 5,
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
+    letterSpacing: 0.3,
   },
   actionDescription: {
     fontSize: 14,
-    color: '#666',
+    color: '#91C788', // Medium green from palette
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
+    letterSpacing: 0.2,
   },
   preparePlanCard: {
-    marginHorizontal: 24,
-    marginBottom: 24,
-    borderRadius: 20,
+    marginVertical: 24,
+    borderRadius: 25,
     overflow: 'hidden',
-    backgroundColor: '#58CC02',
-    elevation: 5,
+    backgroundColor: '#52734D', // Dark green from palette
+    elevation: 6,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 3,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
   },
   preparePlanContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   preparePlanIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#91C788', // Medium green from palette
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 18,
   },
   preparePlanTextContainer: {
     flex: 1,
   },
   preparePlanTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FEFFDE', // Lightest shade from palette
+    marginBottom: 6,
+    letterSpacing: 0.5,
   },
   preparePlanDescription: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    lineHeight: 20,
+    fontSize: 15,
+    color: '#DDFFBC', // Light accent from palette
+    lineHeight: 22,
+    letterSpacing: 0.3,
+  },
+  profileButton: {
+    marginLeft: 20,
+    backgroundColor: '#91C788', // Medium green from palette
+    borderRadius: 25,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  calorieSubtext: {
+    color: '#E0FBE2',
+    fontSize: 12,
+    fontWeight: '400',
+    marginTop: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Roboto',
+    letterSpacing: 0.2,
+    opacity: 0.9,
   },
 }); 

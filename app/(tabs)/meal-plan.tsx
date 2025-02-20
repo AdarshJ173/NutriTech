@@ -38,38 +38,38 @@ const { width } = Dimensions.get('window');
 // Enhanced color system with semantic naming and WCAG compliance
 const Colors = {
   light: {
-    primary: '#2E7D32', // Adjusted for AA contrast
-    primaryLight: '#E8F5E9',
-    primaryDark: '#1B5E20',
-    background: '#FFFFFF',
-    surface: '#F5F7FA',
-    text: '#1A1A1A',
-    textSecondary: '#595959', // Adjusted for AA contrast
-    textTertiary: '#757575', // Adjusted for AA contrast
-    border: '#E0E0E0',
-    success: '#2E7D32',
-    successLight: 'rgba(46, 125, 50, 0.1)',
-    card: '#FFFFFF',
+    primary: '#91C788',
+    primaryLight: '#ACE1AF',
+    primaryDark: '#52734D',
+    background: '#FEFFDE',
+    surface: '#E0FBE2',
+    text: '#000000',
+    textSecondary: '#52734D',
+    textTertiary: '#91C788',
+    border: '#B0EBB4',
+    success: '#91C788',
+    successLight: '#BFF6C3',
+    card: '#FEFFDE',
     shadow: '#000000',
-    focus: '#2196F3',
-    error: '#D32F2F',
+    focus: '#52734D',
+    error: '#FF6B6B',
   },
   dark: {
-    primary: '#81C784',
-    primaryLight: '#1B5E20',
-    primaryDark: '#A5D6A7',
-    background: '#121212',
-    surface: '#1E1E1E',
-    text: '#FFFFFF',
-    textSecondary: '#B3B3B3',
-    textTertiary: '#999999',
-    border: '#2C2C2C',
-    success: '#81C784',
-    successLight: 'rgba(129, 199, 132, 0.1)',
-    card: '#1E1E1E',
+    primary: '#91C788',
+    primaryLight: '#52734D',
+    primaryDark: '#ACE1AF',
+    background: '#000000',
+    surface: '#1A1A1A',
+    text: '#FEFFDE',
+    textSecondary: '#DDFFBC',
+    textTertiary: '#B0EBB4',
+    border: '#52734D',
+    success: '#91C788',
+    successLight: '#BFF6C3',
+    card: '#1A1A1A',
     shadow: '#000000',
-    focus: '#64B5F6',
-    error: '#EF5350',
+    focus: '#ACE1AF',
+    error: '#FF6B6B',
   },
 };
 
@@ -384,65 +384,40 @@ const MealPlanScreen = () => {
 
     const handleRemoveMeal = async () => {
       try {
-        console.log('Attempting to remove meal:', mealType);
-        
         // Get current meal plan
         const currentPlanStr = await AsyncStorage.getItem('currentMealPlan');
-        console.log('Current stored plan:', currentPlanStr);
-        
         if (!currentPlanStr) {
           console.error('No meal plan found in storage');
           return;
         }
 
-        // Parse current plan with error handling
-        let currentPlan: MealPlanStorage;
-        try {
-          currentPlan = JSON.parse(currentPlanStr);
-        } catch (e) {
-          console.error('Failed to parse meal plan:', e);
-          currentPlan = { breakfast: null, lunch: null, dinner: null, snacks: null };
+        let currentPlan: MealPlanStorage = JSON.parse(currentPlanStr);
+
+        // Map the meal type to the storage key
+        const mealTypeMap: { [key: string]: keyof MealPlanStorage } = {
+          'Breakfast': 'breakfast',
+          'Lunch': 'lunch',
+          'Dinner': 'dinner',
+          'Snacks': 'snacks'
+        };
+
+        const storageKey = mealTypeMap[mealType];
+        if (!storageKey) {
+          console.error('Invalid meal type:', mealType);
+          return;
         }
 
-        // Normalize the meal type for comparison
-        const normalizedMealType = mealType.toLowerCase().trim();
-        
-        // Get the storage key based on normalized meal type
-        let planKey: keyof MealPlanStorage;
-        switch (normalizedMealType) {
-          case 'breakfast':
-            planKey = 'breakfast';
-            break;
-          case 'lunch':
-            planKey = 'lunch';
-            break;
-          case 'dinner':
-            planKey = 'dinner';
-            break;
-          case 'snacks':
-          case 'snack':
-            planKey = 'snacks';
-            break;
-          default:
-            console.error('Unknown meal type:', mealType);
-            return;
-        }
-        
-        // Create a new plan object with the specific meal set to null
+        // Create updated plan with the meal removed
         const updatedPlan = {
           ...currentPlan,
-          [planKey]: null
+          [storageKey]: null
         };
-        
-        console.log('Updated plan before save:', updatedPlan);
 
-        // Save updated plan
+        // Save to storage
         await AsyncStorage.setItem('currentMealPlan', JSON.stringify(updatedPlan));
         
-        // Force a clean state update with the new plan
+        // Update state
         setStoredMeals(updatedPlan);
-        
-        console.log('Meal removed successfully:', planKey);
 
       } catch (error) {
         console.error('Error removing meal:', error);
@@ -459,8 +434,8 @@ const MealPlanScreen = () => {
             <Text style={styles.mealTime}>
               {mealType === 'Breakfast' ? '8:00 AM' :
               mealType === 'Lunch' ? '1:00 PM' :
-              mealType === 'Dinner' ? '7:00 PM' : '4:00 PM'
-            }</Text>
+              mealType === 'Dinner' ? '7:00 PM' : '4:00 PM'}
+            </Text>
             <TouchableOpacity
               style={styles.removeButton}
               onPress={handleRemoveMeal}
@@ -488,13 +463,13 @@ const MealPlanScreen = () => {
         </View>
       </Animated.View>
     );
-  }, [router]);
+  }, [router, setStoredMeals]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+    <View style={styles.container}>
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'light'} />
       
-      <Animated.View entering={FadeIn} style={[styles.header, { height: headerHeight }]}>
+      <Animated.View entering={FadeIn} style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <ThemedText type="title" style={styles.headerTitle}>Meal Plan</ThemedText>
         <Text style={[styles.subtitle, { color: colors.text }]}>
           Your personalized nutrition schedule
@@ -532,16 +507,16 @@ const MealPlanScreen = () => {
                   <Text style={styles.macroLabel}>Calories</Text>
                 </View>
                 <View style={styles.macroItem}>
-                  <Text style={styles.macroValue}>{totalNutrition.protein}g</Text>
-                  <Text style={styles.macroLabel}>Protein</Text>
+                  <Text style={styles.macroValue}>{totalNutrition.protein}</Text>
+                  <Text style={styles.macroLabel}>Protein{'\n'}(g)</Text>
                 </View>
                 <View style={styles.macroItem}>
-                  <Text style={styles.macroValue}>{totalNutrition.carbs}g</Text>
-                  <Text style={styles.macroLabel}>Carbs</Text>
+                  <Text style={styles.macroValue}>{totalNutrition.carbs}</Text>
+                  <Text style={styles.macroLabel}>Carbs{'\n'}(g)</Text>
                 </View>
                 <View style={styles.macroItem}>
-                  <Text style={styles.macroValue}>{totalNutrition.fats}g</Text>
-                  <Text style={styles.macroLabel}>Fats</Text>
+                  <Text style={styles.macroValue}>{totalNutrition.fats}</Text>
+                  <Text style={styles.macroLabel}>Fats{'\n'}(g)</Text>
                 </View>
               </View>
             </Animated.View>
@@ -558,22 +533,42 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.light.background,
+    paddingTop: 0,
   } as ViewStyle,
   header: {
-    padding: 24,
-    backgroundColor: Colors.light.primary,
-    minHeight: 120,
+    paddingHorizontal: 28,
+    paddingBottom: 28,
+    paddingTop: 0,
+    backgroundColor: '#52734D',
+    minHeight: 140,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
   } as ViewStyle,
   headerTitle: {
-    color: Colors.light.background,
-    marginBottom: 4,
+    color: '#FEFFDE',
+    marginBottom: 8,
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   } as TextStyle,
   subtitle: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: 18,
+    fontWeight: '500',
     lineHeight: 24,
-    color: Colors.light.background,
+    color: '#E0FBE2',
     marginTop: 4,
+    opacity: 0.95,
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   } as TextStyle,
   daysWrapper: {
     backgroundColor: Colors.light.background,
@@ -630,75 +625,71 @@ const styles = StyleSheet.create({
   } as TextStyle,
   nutritionSummary: {
     backgroundColor: Colors.light.card,
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 24,
+    borderRadius: 24,
+    padding: 24,
+    marginTop: 32,
     marginBottom: 80,
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.light.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 5,
   },
-  summaryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  } as ViewStyle,
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 8,
-  } as ViewStyle,
-  editButtonText: {
-    fontSize: 14,
-    color: Colors.light.primary,
-    marginLeft: 4,
-  } as TextStyle,
+  summaryTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.light.text,
+    marginBottom: 20,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
   macroContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    marginHorizontal: 4,
   } as ViewStyle,
   macroItem: {
     alignItems: 'center',
+    flex: 1,
+    paddingHorizontal: 4,
   } as ViewStyle,
   macroValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.light.text,
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.light.primaryDark,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    marginBottom: 4,
   } as TextStyle,
   macroLabel: {
     fontSize: 14,
     color: Colors.light.textSecondary,
-    marginTop: 4,
+    fontWeight: '500',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    flexWrap: 'wrap',
   } as TextStyle,
   content: {
     flex: 1,
-    padding: 20,
+    padding: 24,
   } as ViewStyle,
   mealsContainer: {
     paddingBottom: 32,
+    gap: 24,
   } as ViewStyle,
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.light.text,
+    fontSize: 22,
+    fontWeight: '700',
+    color: Colors.light.primaryDark,
     marginBottom: 16,
-  },
-  summaryTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.light.text,
-    marginBottom: 17,
-    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   mealCardContainer: {
     marginBottom: 16,
@@ -706,103 +697,118 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   mealCard: {
     backgroundColor: Colors.light.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 15,
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.light.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   } as ViewStyle,
   mealInfo: {
     flex: 1,
+    gap: 8,
   },
   mealTime: {
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.light.primary,
     fontWeight: '600',
-    marginBottom: 4,
+    letterSpacing: 0.5,
   },
   mealName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '700',
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
   nutritionInfo: {
     backgroundColor: Colors.light.surface,
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 8,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   nutritionText: {
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.light.textSecondary,
-    lineHeight: 20,
+    lineHeight: 24,
+    fontWeight: '500',
   },
   ingredientsContainer: {
-    marginTop: 16,
-    paddingTop: 16,
+    marginTop: 20,
+    paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: Colors.light.border,
   },
   ingredientsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
   ingredient: {
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.light.textSecondary,
-    marginBottom: 4,
-    marginLeft: 8,
+    marginBottom: 8,
+    marginLeft: 12,
+    lineHeight: 24,
   },
   emptyMealCard: {
     backgroundColor: Colors.light.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 15,
+    borderRadius: 20,
+    padding: 28,
+    marginBottom: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 120,
-    gap: 12,
+    minHeight: 140,
+    gap: 16,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: Colors.light.border,
   },
   emptyMealText: {
-    fontSize: 16,
+    fontSize: 18,
     color: Colors.light.textSecondary,
     marginBottom: 8,
+    fontWeight: '500',
   },
   addMealButton: {
     backgroundColor: Colors.light.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   addMealButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     color: Colors.light.background,
     fontWeight: '600',
+    letterSpacing: 0.5,
   },
   mealHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   removeButton: {
-    padding: 4,
+    padding: 8,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
   },
   caloriesBadgeContainer: {
     backgroundColor: Colors.light.successLight,

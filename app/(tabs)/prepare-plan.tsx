@@ -476,18 +476,20 @@ The response must be ONLY the following JSON structure with no additional text o
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <StatusBar style="light" />
       
-      <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={handleBack}
-          style={styles.backButton}
-          hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-        >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Prepare Meal Plan</Text>
+      <View style={[styles.header]}>
+        <View style={[styles.headerContent, { paddingTop: insets.top }]}>
+          <TouchableOpacity 
+            onPress={handleBack}
+            style={styles.backButton}
+            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+          >
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Prepare Meal Plan</Text>
+        </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -580,80 +582,149 @@ The response must be ONLY the following JSON structure with no additional text o
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#FEFFDE', // Light background from palette
   },
   header: {
-    backgroundColor: '#58CC02',
-    padding: 20,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    backgroundColor: '#52734D', // Dark green from palette
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 28,
+    paddingBottom: 28,
   },
   backButton: {
     marginRight: 16,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginRight: 40,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  inputSection: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#91C788', // Primary green from palette
+    padding: 8,
     borderRadius: 12,
-    padding: 15,
-    marginBottom: 16,
-    fontSize: 16,
-    minHeight: 100,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  generateButton: {
-    backgroundColor: '#58CC02',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  generateButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 10,
-  },
-  planContainer: {
-    marginTop: 20,
-  },
-  targetSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#FEFFDE', // Light text from palette
+    textAlign: 'center',
+    marginRight: 40,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  content: {
+    flex: 1,
+    padding: 24,
+  },
+  inputSection: {
+    marginBottom: 24,
+    backgroundColor: '#E0FBE2', // Surface color from palette
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#B0EBB4', // Border color from palette
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  label: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#52734D', // Dark green from palette
+    marginBottom: 12,
+    letterSpacing: 0.5,
+  },
+  input: {
+    backgroundColor: '#FEFFDE', // Light background from palette
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    fontSize: 16,
+    minHeight: 120,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: '#B0EBB4', // Border color from palette
+    color: '#52734D', // Dark green from palette
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  generateButton: {
+    backgroundColor: '#91C788', // Primary green from palette
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  generateButtonText: {
+    color: '#FEFFDE', // Light text from palette
+    fontSize: 20,
+    fontWeight: '700',
+    marginLeft: 12,
+    letterSpacing: 0.5,
+  },
+  planContainer: {
+    marginTop: 24,
+  },
+  targetSection: {
+    backgroundColor: '#E0FBE2', // Surface color from palette
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#B0EBB4', // Border color from palette
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
       },
       android: {
         elevation: 4,
@@ -661,48 +732,63 @@ const styles = StyleSheet.create({
     }),
   },
   targetTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#52734D', // Dark green from palette
+    marginBottom: 20,
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   targetsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    backgroundColor: '#FEFFDE', // Light background from palette
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#B0EBB4', // Border color from palette
   },
   targetItem: {
     alignItems: 'center',
+    flex: 1,
+    paddingHorizontal: 8,
   },
   targetValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#58CC02',
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#91C788', // Primary green from palette
+    marginBottom: 4,
+    letterSpacing: 0.5,
   },
   targetLabel: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    color: '#52734D', // Dark green from palette
+    fontWeight: '600',
+    textAlign: 'center',
   },
   mealSection: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#52734D', // Dark green from palette
+    marginBottom: 16,
+    letterSpacing: 0.5,
   },
   mealCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 15,
+    backgroundColor: '#E0FBE2', // Surface color from palette
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#B0EBB4', // Border color from palette
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 12,
       },
       android: {
         elevation: 4,
@@ -710,58 +796,67 @@ const styles = StyleSheet.create({
     }),
   },
   mealName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#52734D', // Dark green from palette
+    marginBottom: 16,
+    letterSpacing: 0.5,
   },
   mealSubtitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#666',
-    marginTop: 10,
-    marginBottom: 5,
+    color: '#91C788', // Primary green from palette
+    marginTop: 16,
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
   ingredient: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 10,
-    marginBottom: 2,
+    fontSize: 16,
+    color: '#52734D', // Dark green from palette
+    marginLeft: 12,
+    marginBottom: 4,
+    lineHeight: 24,
   },
   preparation: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    marginTop: 5,
+    fontSize: 16,
+    color: '#52734D', // Dark green from palette
+    lineHeight: 24,
+    marginTop: 8,
   },
   nutritionInfo: {
-    marginTop: 15,
-    padding: 10,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: '#FEFFDE', // Light background from palette
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#B0EBB4', // Border color from palette
   },
   nutritionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 5,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#52734D', // Dark green from palette
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
   nutritionText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
+    fontSize: 16,
+    color: '#52734D', // Dark green from palette
+    marginBottom: 4,
+    lineHeight: 24,
   },
   recommendationsSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    backgroundColor: '#E0FBE2', // Surface color from palette
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#B0EBB4', // Border color from palette
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 12,
       },
       android: {
         elevation: 4,
@@ -769,46 +864,71 @@ const styles = StyleSheet.create({
     }),
   },
   recommendationsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-    marginTop: 15,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#52734D', // Dark green from palette
+    marginBottom: 12,
+    marginTop: 16,
+    letterSpacing: 0.5,
   },
   recommendationsText: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
+    fontSize: 16,
+    color: '#52734D', // Dark green from palette
+    lineHeight: 24,
   },
   savePlanButton: {
-    backgroundColor: '#58CC02',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#91C788', // Primary green from palette
+    borderRadius: 16,
+    padding: 20,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 24,
     marginBottom: 100,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   savePlanButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 10,
+    color: '#FEFFDE', // Light text from palette
+    fontSize: 20,
+    fontWeight: '700',
+    marginLeft: 12,
+    letterSpacing: 0.5,
   },
   addButton: {
-    backgroundColor: '#58CC02',
+    backgroundColor: '#91C788', // Primary green from palette
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
+    padding: 16,
+    borderRadius: 16,
+    marginTop: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   addButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    color: '#FEFFDE', // Light text from palette
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: 10,
+    letterSpacing: 0.5,
   },
 }); 
