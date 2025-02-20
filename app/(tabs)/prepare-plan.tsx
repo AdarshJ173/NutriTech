@@ -33,10 +33,10 @@ interface MealPlan {
   dailyCarbTarget: number;
   dailyFatTarget: number;
   mealPlan: {
-    breakfast: MealOption[];
-    lunch: MealOption[];
-    dinner: MealOption[];
-    snacks: MealOption[];
+    breakfast: [MealOption, MealOption];
+    lunch: [MealOption, MealOption];
+    dinner: [MealOption, MealOption];
+    snacks: [MealOption, MealOption];
   };
   localConsiderations: string;
   dietaryRecommendations: string;
@@ -53,6 +53,13 @@ interface MealOption {
     fat: number;
   };
   imageUrl?: string;
+}
+
+interface MealPlanStorage {
+  breakfast: MealOption | null;
+  lunch: MealOption | null;
+  dinner: MealOption | null;
+  snacks: MealOption | null;
 }
 
 export default function PreparePlanScreen() {
@@ -100,7 +107,7 @@ export default function PreparePlanScreen() {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `Generate a personalized meal plan based on the following information:
+              text: `Generate a personalized meal plan with EXACTLY TWO OPTIONS for each meal category based on the following information:
 
 User Profile:
 - Name: ${userProfile.name}
@@ -114,62 +121,114 @@ User Profile:
 Dietary Preferences: ${dietaryPreferences}
 Current Diet: ${currentDiet}
 
-Generate a JSON response with the following structure:
+Generate a JSON response with EXACTLY TWO meal options per category in the following structure:
 {
   "dailyCalorieTarget": 2000,
   "dailyProteinTarget": 150,
   "dailyCarbTarget": 200,
   "dailyFatTarget": 70,
   "mealPlan": {
-    "breakfast": [{
-      "name": "Healthy Breakfast",
-      "ingredients": ["ingredient1", "ingredient2"],
-      "preparation": "Step by step instructions",
-      "nutritionalInfo": {
-        "calories": 500,
-        "protein": 30,
-        "carbs": 45,
-        "fat": 20
+    "breakfast": [
+      {
+        "name": "Healthy Breakfast Option 1",
+        "ingredients": ["ingredient1", "ingredient2"],
+        "preparation": "Step by step instructions",
+        "nutritionalInfo": {
+          "calories": 500,
+          "protein": 30,
+          "carbs": 45,
+          "fat": 20
+        }
+      },
+      {
+        "name": "Healthy Breakfast Option 2",
+        "ingredients": ["ingredient1", "ingredient2"],
+        "preparation": "Step by step instructions",
+        "nutritionalInfo": {
+          "calories": 500,
+          "protein": 30,
+          "carbs": 45,
+          "fat": 20
+        }
       }
-    }],
-    "lunch": [{
-      "name": "Healthy Lunch",
-      "ingredients": ["ingredient1", "ingredient2"],
-      "preparation": "Step by step instructions",
-      "nutritionalInfo": {
-        "calories": 600,
-        "protein": 40,
-        "carbs": 50,
-        "fat": 25
+    ],
+    "lunch": [
+      {
+        "name": "Healthy Lunch Option 1",
+        "ingredients": ["ingredient1", "ingredient2"],
+        "preparation": "Step by step instructions",
+        "nutritionalInfo": {
+          "calories": 600,
+          "protein": 40,
+          "carbs": 50,
+          "fat": 25
+        }
+      },
+      {
+        "name": "Healthy Lunch Option 2",
+        "ingredients": ["ingredient1", "ingredient2"],
+        "preparation": "Step by step instructions",
+        "nutritionalInfo": {
+          "calories": 600,
+          "protein": 40,
+          "carbs": 50,
+          "fat": 25
+        }
       }
-    }],
-    "dinner": [{
-      "name": "Healthy Dinner",
-      "ingredients": ["ingredient1", "ingredient2"],
-      "preparation": "Step by step instructions",
-      "nutritionalInfo": {
-        "calories": 500,
-        "protein": 35,
-        "carbs": 40,
-        "fat": 20
+    ],
+    "dinner": [
+      {
+        "name": "Healthy Dinner Option 1",
+        "ingredients": ["ingredient1", "ingredient2"],
+        "preparation": "Step by step instructions",
+        "nutritionalInfo": {
+          "calories": 500,
+          "protein": 35,
+          "carbs": 40,
+          "fat": 20
+        }
+      },
+      {
+        "name": "Healthy Dinner Option 2",
+        "ingredients": ["ingredient1", "ingredient2"],
+        "preparation": "Step by step instructions",
+        "nutritionalInfo": {
+          "calories": 500,
+          "protein": 35,
+          "carbs": 40,
+          "fat": 20
+        }
       }
-    }],
-    "snacks": [{
-      "name": "Healthy Snack",
-      "ingredients": ["ingredient1", "ingredient2"],
-      "preparation": "Step by step instructions",
-      "nutritionalInfo": {
-        "calories": 200,
-        "protein": 10,
-        "carbs": 25,
-        "fat": 8
+    ],
+    "snacks": [
+      {
+        "name": "Healthy Snack Option 1",
+        "ingredients": ["ingredient1", "ingredient2"],
+        "preparation": "Step by step instructions",
+        "nutritionalInfo": {
+          "calories": 200,
+          "protein": 10,
+          "carbs": 25,
+          "fat": 8
+        }
+      },
+      {
+        "name": "Healthy Snack Option 2",
+        "ingredients": ["ingredient1", "ingredient2"],
+        "preparation": "Step by step instructions",
+        "nutritionalInfo": {
+          "calories": 200,
+          "protein": 10,
+          "carbs": 25,
+          "fat": 8
+        }
       }
-    }]
+    ]
   },
   "localConsiderations": "Consider local food availability and preferences",
   "dietaryRecommendations": "Personalized recommendations based on profile"
 }`
-              }]
+            }]
           }]
         })
       });
@@ -232,11 +291,67 @@ Generate a JSON response with the following structure:
   };
 
   const renderMealSection = (title: string, meals: MealOption[]) => {
+    const handleAddMeal = async (meal: MealOption, mealType: string) => {
+      try {
+        // Get current meal plan
+        const currentPlanStr = await AsyncStorage.getItem('currentMealPlan');
+        let currentPlan: MealPlanStorage = currentPlanStr 
+          ? JSON.parse(currentPlanStr)
+          : { breakfast: null, lunch: null, dinner: null, snacks: null };
+
+        // Update the specific meal type
+        const type = mealType.toLowerCase();
+        switch (type) {
+          case 'breakfast options':
+          case 'breakfast':
+            currentPlan.breakfast = meal;
+            break;
+          case 'lunch options':
+          case 'lunch':
+            currentPlan.lunch = meal;
+            break;
+          case 'dinner options':
+          case 'dinner':
+            currentPlan.dinner = meal;
+            break;
+          case 'snack options':
+          case 'snacks':
+            currentPlan.snacks = meal;
+            break;
+        }
+
+        // Save updated plan
+        await AsyncStorage.setItem('currentMealPlan', JSON.stringify(currentPlan));
+        
+        // Show success alert with navigation options
+        Alert.alert(
+          'Success',
+          `Added ${meal.name} to your ${mealType.replace(' Options', '')} plan`,
+          [
+            {
+              text: 'View Meal Plan',
+              onPress: () => {
+                router.push('/meal-plan');
+              }
+            },
+            { text: 'OK' }
+          ]
+        );
+      } catch (error) {
+        console.error('Error saving meal:', error);
+        Alert.alert('Error', 'Failed to add meal to plan');
+      }
+    };
+
     return (
       <View style={styles.mealSection}>
         <Text style={styles.sectionTitle}>{title}</Text>
         {meals.map((meal, index) => (
-          <View key={index} style={styles.mealCard}>
+          <Animated.View 
+            key={index} 
+            entering={FadeInDown.delay(index * 100)}
+            style={styles.mealCard}
+          >
             <Text style={styles.mealName}>{meal.name}</Text>
             <Text style={styles.mealSubtitle}>Ingredients:</Text>
             {meal.ingredients.map((ingredient, idx) => (
@@ -251,7 +366,14 @@ Generate a JSON response with the following structure:
               <Text style={styles.nutritionText}>Carbs: {meal.nutritionalInfo.carbs}g</Text>
               <Text style={styles.nutritionText}>Fat: {meal.nutritionalInfo.fat}g</Text>
             </View>
-          </View>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => handleAddMeal(meal, title)}
+            >
+              <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.addButtonText}>Add to Meal Plan</Text>
+            </TouchableOpacity>
+          </Animated.View>
         ))}
       </View>
     );
@@ -574,12 +696,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 20,
-    marginBottom: 30,
+    marginBottom: 100,
   },
   savePlanButtonText: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
     marginLeft: 10,
+  },
+  addButton: {
+    backgroundColor: '#58CC02',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  addButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 }); 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,9 @@ import Animated, {
 import { ThemedText } from '@/components/ThemedText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -252,6 +255,26 @@ interface DayPlan {
   meals: Meal[];
 }
 
+interface MealOption {
+  name: string;
+  ingredients: string[];
+  preparation: string;
+  nutritionalInfo: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  imageUrl?: string;
+}
+
+interface MealPlanStorage {
+  breakfast: MealOption | null;
+  lunch: MealOption | null;
+  dinner: MealOption | null;
+  snacks: MealOption | null;
+}
+
 const MealPlanScreen = () => {
   const { width: windowWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -260,104 +283,78 @@ const MealPlanScreen = () => {
   const colors = colorScheme === 'dark' ? Colors.dark : Colors.light;
   
   const [selectedDay, setSelectedDay] = useState(new Date());
-  const [weeklyPlan] = useState<DayPlan[]>(generateWeeklyPlan());
+  const [storedMeals, setStoredMeals] = useState<MealPlanStorage | null>(null);
   const scrollViewRef = React.useRef<Animated.ScrollView>(null);
   const headerHeight = useSharedValue(0);
-  
-  React.useEffect(() => {
-    // Calculate the index of today in the week
+  const router = useRouter();
+
+  // Replace the useEffect with useFocusEffect
+  useFocusEffect(
+    useCallback(() => {
+      const loadMeals = async () => {
+        try {
+          const storedPlan = await AsyncStorage.getItem('currentMealPlan');
+          if (storedPlan) {
+            const parsedPlan: MealPlanStorage = JSON.parse(storedPlan);
+            setStoredMeals(parsedPlan);
+          }
+        } catch (error) {
+          console.error('Error loading stored meals:', error);
+        }
+      };
+
+      loadMeals();
+    }, [])
+  );
+
+  // Calculate total nutrition from all selected meals
+  const totalNutrition = useMemo(() => {
+    if (!storedMeals) return null;
+
+    try {
+      const meals = [
+        storedMeals.breakfast,
+        storedMeals.lunch,
+        storedMeals.dinner,
+        storedMeals.snacks
+      ].filter(meal => meal !== null);
+
+      return meals.reduce((acc, meal) => ({
+        calories: acc.calories + (meal?.nutritionalInfo?.calories || 0),
+        protein: acc.protein + (meal?.nutritionalInfo?.protein || 0),
+        carbs: acc.carbs + (meal?.nutritionalInfo?.carbs || 0),
+        fats: acc.fats + (meal?.nutritionalInfo?.fat || 0)
+      }), {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fats: 0
+      });
+    } catch (error) {
+      console.error('Error calculating nutrition:', error);
+      return null;
+    }
+  }, [storedMeals]);
+
+  // Scroll to today effect
+  useEffect(() => {
     const today = new Date();
     const dayIndex = today.getDay();
-    const adjustedIndex = dayIndex === 0 ? 6 : dayIndex - 1; // Adjust for Monday start
+    const adjustedIndex = dayIndex === 0 ? 6 : dayIndex - 1;
 
-    // Scroll to today's position with a slight delay to ensure layout is ready
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       if (scrollViewRef.current) {
         scrollViewRef.current.scrollTo({
-          x: adjustedIndex * (48 + 4), // width of day button + margin (4px)
+          x: adjustedIndex * (48 + 4),
           animated: true,
         });
       }
     }, 500);
+
+    return () => clearTimeout(timer);
   }, []);
 
-  function generateWeeklyPlan(): DayPlan[] {
-    const today = new Date();
-    const mondayOffset = today.getDay() === 0 ? -6 : 1 - today.getDay();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + mondayOffset);
-
-    return Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + i);
-      return {
-        date,
-        meals: [
-          {
-            name: 'Oatmeal with Fruits',
-            calories: 350,
-            protein: 12,
-            carbs: 55,
-            fats: 8,
-            time: '8:00 AM',
-          },
-          {
-            name: 'Greek Yogurt with Nuts',
-            calories: 200,
-            protein: 15,
-            carbs: 12,
-            fats: 10,
-            time: '11:00 AM',
-          },
-          {
-            name: 'Grilled Chicken Salad',
-            calories: 450,
-            protein: 35,
-            carbs: 25,
-            fats: 22,
-            time: '2:00 PM',
-          },
-          {
-            name: 'Protein Smoothie',
-            calories: 250,
-            protein: 20,
-            carbs: 30,
-            fats: 5,
-            time: '5:00 PM',
-          },
-          {
-            name: 'Salmon with Vegetables',
-            calories: 550,
-            protein: 40,
-            carbs: 35,
-            fats: 28,
-            time: '8:00 PM',
-          },
-        ],
-      };
-    });
-  }
-
-  // Memoized calculations
-  const selectedDayPlan = useMemo(() => 
-    weeklyPlan.find(plan => plan.date.toDateString() === selectedDay.toDateString()),
-    [weeklyPlan, selectedDay]
-  );
-
-  const totalNutrition = useMemo(() => 
-    selectedDayPlan?.meals.reduce(
-      (acc, meal) => ({
-        calories: acc.calories + meal.calories,
-        protein: acc.protein + meal.protein,
-        carbs: acc.carbs + meal.carbs,
-        fats: acc.fats + meal.fats,
-      }),
-      { calories: 0, protein: 0, carbs: 0, fats: 0 }
-    ),
-    [selectedDayPlan]
-  );
-
-  // Scroll handling with performance optimization
+  // Handle scroll animation
   const handleScroll = useCallback((event: any) => {
     const scrollY = event.nativeEvent.contentOffset.y;
     headerHeight.value = withSpring(
@@ -366,134 +363,174 @@ const MealPlanScreen = () => {
     );
   }, []);
 
-  const handleMealPress = (mealType: string) => {
-    console.log(`${mealType} pressed`);
-    // Implement meal details/editing navigation
-  };
+  // Render a meal card with improved error handling
+  const renderMealCard = useCallback((meal: MealOption | null, mealType: string) => {
+    if (!meal) {
+      return (
+        <Animated.View 
+          entering={FadeInUp.delay(100)}
+          style={styles.emptyMealCard}
+        >
+          <Text style={styles.emptyMealText}>No {mealType} selected</Text>
+          <TouchableOpacity
+            style={styles.addMealButton}
+            onPress={() => router.push('/prepare-plan')}
+          >
+            <Text style={styles.addMealButtonText}>Add {mealType}</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      );
+    }
+
+    const handleRemoveMeal = async () => {
+      try {
+        console.log('Attempting to remove meal:', mealType);
+        
+        // Get current meal plan
+        const currentPlanStr = await AsyncStorage.getItem('currentMealPlan');
+        console.log('Current stored plan:', currentPlanStr);
+        
+        let currentPlan: MealPlanStorage = currentPlanStr 
+          ? JSON.parse(currentPlanStr)
+          : { breakfast: null, lunch: null, dinner: null, snacks: null };
+
+        // Normalize the meal type for comparison - convert to lowercase and trim
+        const normalizedType = mealType.toLowerCase().trim();
+        console.log('Normalized meal type:', normalizedType);
+
+        // Fix: Directly determine the key rather than using a lookup table
+        let planKey: keyof MealPlanStorage;
+        
+        if (normalizedType === 'breakfast') {
+          planKey = 'breakfast';
+        } else if (normalizedType === 'lunch') {
+          planKey = 'lunch';
+        } else if (normalizedType === 'dinner') {
+          planKey = 'dinner';
+        } else if (normalizedType === 'snacks' || normalizedType === 'snack') {
+          planKey = 'snacks';
+        } else {
+          console.error('Unknown meal type:', normalizedType);
+          return;
+        }
+        
+        console.log('Setting', planKey, 'to null');
+        currentPlan[planKey] = null;
+        
+        console.log('Updated plan before save:', currentPlan);
+
+        // Save updated plan
+        await AsyncStorage.setItem('currentMealPlan', JSON.stringify(currentPlan));
+        
+        // Force a clean state update
+        setStoredMeals({...currentPlan});
+        
+        console.log('Meal removed successfully:', planKey);
+
+      } catch (error) {
+        console.error('Error removing meal:', error);
+      }
+    };
+
+    return (
+      <Animated.View 
+        entering={FadeInUp.delay(100)}
+        style={styles.mealCard}
+      >
+        <View style={styles.mealInfo}>
+          <View style={styles.mealHeader}>
+            <Text style={styles.mealTime}>{
+              mealType === 'Breakfast' ? '8:00 AM' :
+              mealType === 'Lunch' ? '1:00 PM' :
+              mealType === 'Dinner' ? '7:00 PM' : '4:00 PM'
+            }</Text>
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={handleRemoveMeal}
+              accessibilityLabel={`Remove ${mealType}`}
+              accessibilityHint={`Removes ${meal.name} from your ${mealType}`}
+            >
+              <Ionicons name="close-circle" size={24} color={Colors.light.error} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.mealName}>{meal.name}</Text>
+          <View style={styles.nutritionInfo}>
+            <Text style={styles.nutritionText}>
+              {meal.nutritionalInfo?.calories || 0} cal · {meal.nutritionalInfo?.protein || 0}g protein · 
+              {meal.nutritionalInfo?.carbs || 0}g carbs · {meal.nutritionalInfo?.fat || 0}g fats
+            </Text>
+          </View>
+          {meal.ingredients && meal.ingredients.length > 0 && (
+            <View style={styles.ingredientsContainer}>
+              <Text style={styles.ingredientsTitle}>Ingredients:</Text>
+              {meal.ingredients.map((ingredient, index) => (
+                <Text key={index} style={styles.ingredient}>• {ingredient}</Text>
+              ))}
+            </View>
+          )}
+        </View>
+      </Animated.View>
+    );
+  }, [router]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       
-      {/* Enhanced header with collapsible animation */}
-      <Animated.View 
-        entering={FadeIn} 
-        style={[styles.header, { height: headerHeight }]}>
+      <Animated.View entering={FadeIn} style={[styles.header, { height: headerHeight }]}>
         <ThemedText type="title" style={styles.headerTitle}>Meal Plan</ThemedText>
         <Text style={[styles.subtitle, { color: colors.text }]}>
           Your personalized nutrition schedule
         </Text>
       </Animated.View>
 
-      {/* Week Day Selector */}
-      <Animated.View 
-        entering={SlideInRight.delay(200)}
-        style={styles.daysWrapper}>
-        <Animated.ScrollView 
-          ref={scrollViewRef}
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.daysScrollContent}
-          style={styles.daysContainer}>
-          {weeklyPlan.map((day, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.dayButton,
-                day.date.toDateString() === selectedDay.toDateString() && styles.selectedDay,
-              ]}
-              onPress={() => setSelectedDay(day.date)}
-              activeOpacity={0.7}>
-              <Text style={[
-                styles.dayName,
-                day.date.toDateString() === selectedDay.toDateString() && styles.selectedDayText,
-              ]}>
-                {daysOfWeek[day.date.getDay() === 0 ? 6 : day.date.getDay() - 1].slice(0, 3)}
-              </Text>
-              <Text style={[
-                styles.dayDate,
-                day.date.toDateString() === selectedDay.toDateString() && styles.selectedDayText,
-              ]}>
-                {day.date.getDate()}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </Animated.ScrollView>
-      </Animated.View>
-
-      {/* Meals List */}
-      <Animated.ScrollView
-        style={[styles.content, { paddingBottom: insets.bottom + theme.spacing.xl }]}
+      <ScrollView 
+        style={styles.content} 
         showsVerticalScrollIndicator={false}
-        entering={FadeIn.delay(400)}
         onScroll={handleScroll}
-        scrollEventThrottle={16}>
-        <View style={styles.nutritionSummary}>
-          <View style={styles.summaryHeader}>
-            <ThemedText type="subtitle">Daily Nutrition</ThemedText>
-            <TouchableOpacity 
-              style={styles.editButton}
-              activeOpacity={0.7}>
-              <FontAwesome name="pencil" size={16} color={Colors.light.primary} />
-              <Text style={styles.editButtonText}>Edit Goals</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.macroContainer}>
-            <View style={styles.macroItem}>
-              <Text style={styles.macroValue}>{totalNutrition?.calories}</Text>
-              <Text style={styles.macroLabel}>Calories</Text>
-            </View>
-            <View style={styles.macroItem}>
-              <Text style={styles.macroValue}>{totalNutrition?.protein}g</Text>
-              <Text style={styles.macroLabel}>Protein</Text>
-            </View>
-            <View style={styles.macroItem}>
-              <Text style={styles.macroValue}>{totalNutrition?.carbs}g</Text>
-              <Text style={styles.macroLabel}>Carbs</Text>
-            </View>
-            <View style={styles.macroItem}>
-              <Text style={styles.macroValue}>{totalNutrition?.fats}g</Text>
-              <Text style={styles.macroLabel}>Fats</Text>
-            </View>
-          </View>
-        </View>
-
+        scrollEventThrottle={16}
+      >
         <View style={styles.mealsSection}>
-          <View style={styles.sectionHeader}>
-            <ThemedText type="subtitle">Meals</ThemedText>
-            <TouchableOpacity 
-              style={styles.addButton}
-              activeOpacity={0.8}>
-              <FontAwesome name="plus" size={16} color={Colors.light.background} />
-              <Text style={styles.addButtonText}>Add Meal</Text>
-            </TouchableOpacity>
-          </View>
-          {selectedDayPlan?.meals.map((meal, index) => (
+          <Text style={styles.sectionTitle}>Breakfast</Text>
+          {renderMealCard(storedMeals?.breakfast, 'Breakfast')}
+
+          <Text style={styles.sectionTitle}>Lunch</Text>
+          {renderMealCard(storedMeals?.lunch, 'Lunch')}
+
+          <Text style={styles.sectionTitle}>Dinner</Text>
+          {renderMealCard(storedMeals?.dinner, 'Dinner')}
+
+          <Text style={styles.sectionTitle}>Snacks</Text>
+          {renderMealCard(storedMeals?.snacks, 'Snacks')}
+
+          {totalNutrition && (
             <Animated.View 
-              key={index}
-              entering={FadeInUp.delay(200 + index * 100)}
-              style={styles.mealCardContainer}>
-              <TouchableOpacity 
-                style={styles.mealCard}
-                activeOpacity={0.9}
-                onPress={() => handleMealPress(meal.name)}>
-                <View style={styles.mealInfo}>
-                  <Text style={styles.mealTime}>{meal.time}</Text>
-                  <Text style={styles.mealName}>{meal.name}</Text>
-                  <Text style={styles.mealMacros}>
-                    {meal.calories} cal · {meal.protein}g protein · {meal.carbs}g carbs · {meal.fats}g fats
-                  </Text>
+              entering={FadeInUp.delay(200)}
+              style={styles.nutritionSummary}
+            >
+              <Text style={styles.summaryTitle}>Daily Nutrition Totals</Text>
+              <View style={styles.macroContainer}>
+                <View style={styles.macroItem}>
+                  <Text style={styles.macroValue}>{totalNutrition.calories}</Text>
+                  <Text style={styles.macroLabel}>Calories</Text>
                 </View>
-                <TouchableOpacity 
-                  style={styles.mealEditButton}
-                  hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-                  <FontAwesome name="ellipsis-v" size={20} color={Colors.light.textSecondary} />
-                </TouchableOpacity>
-              </TouchableOpacity>
+                <View style={styles.macroItem}>
+                  <Text style={styles.macroValue}>{totalNutrition.protein}g</Text>
+                  <Text style={styles.macroLabel}>Protein</Text>
+                </View>
+                <View style={styles.macroItem}>
+                  <Text style={styles.macroValue}>{totalNutrition.carbs}g</Text>
+                  <Text style={styles.macroLabel}>Carbs</Text>
+                </View>
+                <View style={styles.macroItem}>
+                  <Text style={styles.macroValue}>{totalNutrition.fats}g</Text>
+                  <Text style={styles.macroLabel}>Fats</Text>
+                </View>
+              </View>
             </Animated.View>
-          ))}
+          )}
         </View>
-      </Animated.ScrollView>
+      </ScrollView>
     </View>
   );
 };
@@ -575,23 +612,23 @@ const styles = StyleSheet.create({
     color: Colors.light.background,
   } as TextStyle,
   nutritionSummary: {
-    margin: 24,
-    marginTop: 16,
-    padding: 24,
     backgroundColor: Colors.light.card,
     borderRadius: 16,
+    padding: 20,
+    marginTop: 24,
+    marginBottom: 32,
     ...Platform.select({
       ios: {
         shadowColor: Colors.light.shadow,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
+        shadowOpacity: 0.1,
         shadowRadius: 4,
       },
       android: {
         elevation: 4,
       },
     }),
-  } as ViewStyle,
+  },
   summaryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -667,63 +704,121 @@ const styles = StyleSheet.create({
   mealCard: {
     backgroundColor: Colors.light.card,
     borderRadius: 16,
-    padding: 24,
+    padding: 20,
+    marginBottom: 15,
     ...Platform.select({
       ios: {
         shadowColor: Colors.light.shadow,
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowRadius: 4,
       },
       android: {
-        elevation: 2,
+        elevation: 4,
       },
     }),
   } as ViewStyle,
   mealInfo: {
     flex: 1,
-    flexDirection: 'column',
-  } as ViewStyle,
+  },
   mealTime: {
     fontSize: 14,
     color: Colors.light.primary,
     fontWeight: '600',
-  } as TextStyle,
+    marginBottom: 4,
+  },
   mealName: {
     fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.light.text,
+    marginBottom: 8,
+  },
+  nutritionInfo: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+  },
+  nutritionText: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    lineHeight: 20,
+  },
+  ingredientsContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+  },
+  ingredientsTitle: {
+    fontSize: 16,
     fontWeight: '600',
     color: Colors.light.text,
-    marginVertical: 4,
-  } as TextStyle,
-  mealMacros: {
+    marginBottom: 8,
+  },
+  ingredient: {
     fontSize: 14,
-    color: Colors.light.textSecondary,
-  } as TextStyle,
-  mealEditButton: {
-    padding: 8,
-  } as ViewStyle,
-  content: {
-    flex: 1,
-  } as ViewStyle,
-  foodList: {
-    marginTop: 4,
-  } as ViewStyle,
-  foodItem: {
-    fontSize: 16,
     color: Colors.light.textSecondary,
     marginBottom: 4,
-  } as TextStyle,
-  caloriesBadgeContainer: {
-    backgroundColor: Colors.light.successLight,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    borderRadius: 24,
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  } as ViewStyle,
-  caloriesText: {
-    fontSize: 14,
-    color: Colors.light.success,
+    marginLeft: 8,
+  },
+  emptyMealCard: {
+    backgroundColor: Colors.light.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 120,
+    gap: 12,
+  },
+  emptyMealText: {
+    fontSize: 16,
+    color: Colors.light.textSecondary,
+    marginBottom: 8,
+  },
+  addMealButton: {
+    backgroundColor: Colors.light.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  addMealButtonText: {
+    fontSize: 16,
+    color: Colors.light.background,
     fontWeight: '600',
-  } as TextStyle,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  mealsSection: {
+    paddingBottom: 32,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.light.text,
+    marginBottom: 16,
+  },
+  summaryTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.light.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  mealHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  removeButton: {
+    padding: 4,
+  },
 }); 
