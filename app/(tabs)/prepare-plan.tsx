@@ -85,7 +85,7 @@ export default function PreparePlanScreen() {
     }
   };
 
-  const generateMealPlan = async () => {
+  const generateMealPlan = async (retryAttempt: number = 0) => {
     if (!userProfile) {
       Alert.alert('Error', 'Please complete your profile first');
       return;
@@ -107,7 +107,7 @@ export default function PreparePlanScreen() {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `Generate a personalized meal plan with EXACTLY TWO OPTIONS for each meal category based on the following information:
+              text: `You must respond with ONLY valid JSON and no other text. Generate a personalized meal plan with EXACTLY TWO OPTIONS for each meal category based on the following information:
 
 User Profile:
 - Name: ${userProfile.name}
@@ -121,7 +121,9 @@ User Profile:
 Dietary Preferences: ${dietaryPreferences}
 Current Diet: ${currentDiet}
 
-Generate a JSON response with EXACTLY TWO meal options per category in the following structure:
+Based on exactly what the user has input in the Dietary Preferences and Current Diet fields, create a personalized meal plan. Do not hallucinate or make assumptions beyond what the user has explicitly stated.
+
+The response must be ONLY the following JSON structure with no additional text or explanations:
 {
   "dailyCalorieTarget": 2000,
   "dailyProteinTarget": 150,
@@ -225,8 +227,8 @@ Generate a JSON response with EXACTLY TWO meal options per category in the follo
       }
     ]
   },
-  "localConsiderations": "Consider local food availability and preferences",
-  "dietaryRecommendations": "Personalized recommendations based on profile"
+  "localConsiderations": "Consider local food availability and preferences based on user's location",
+  "dietaryRecommendations": "Personalized recommendations based on profile, BMI, and stated preferences"
 }`
             }]
           }]
@@ -234,55 +236,145 @@ Generate a JSON response with EXACTLY TWO meal options per category in the follo
       });
 
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error('API Error Response:', errorData);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
       
       if (!data || !data.candidates || !data.candidates[0]?.content?.parts[0]?.text) {
-        console.error('Invalid API Response:', data);
-        throw new Error('Invalid response format from API');
+        throw new Error('Invalid API response structure');
       }
 
       try {
         const planText = data.candidates[0].content.parts[0].text;
-        console.log('API Response Text:', planText);
         
-        // Clean the response text to ensure it's valid JSON
-        const cleanedText = planText.trim().replace(/```json\n?|\n?```/g, '');
+        // Clean the response text
+        const cleanedText = planText
+          .trim()
+          // Remove any markdown code blocks
+          .replace(/```json\n?|\n?```/g, '')
+          // Remove any additional whitespace or newlines at start/end
+          .trim()
+          // Remove any non-JSON text before or after the JSON structure
+          .replace(/^[^{]*({[\s\S]*})[^}]*$/, '$1');
+
+        // Validate JSON structure before parsing
+        if (!cleanedText.startsWith('{') || !cleanedText.endsWith('}')) {
+          throw new Error('Invalid JSON structure');
+        }
+
         const planJson = JSON.parse(cleanedText);
         
-        // Validate the response structure
+        // Validate required fields
         if (!planJson.dailyCalorieTarget || !planJson.mealPlan || 
             !planJson.mealPlan.breakfast || !planJson.mealPlan.lunch || 
-            !planJson.mealPlan.dinner || !planJson.mealPlan.snacks) {
-          console.error('Invalid Plan Structure:', planJson);
+            !planJson.mealPlan.dinner || !planJson.mealPlan.snacks ||
+            !Array.isArray(planJson.mealPlan.breakfast) || planJson.mealPlan.breakfast.length !== 2 ||
+            !Array.isArray(planJson.mealPlan.lunch) || planJson.mealPlan.lunch.length !== 2 ||
+            !Array.isArray(planJson.mealPlan.dinner) || planJson.mealPlan.dinner.length !== 2 ||
+            !Array.isArray(planJson.mealPlan.snacks) || planJson.mealPlan.snacks.length !== 2) {
           throw new Error('Invalid meal plan structure');
         }
-        
+
         setGeneratedPlan(planJson);
         
-        // Save the generated plan to AsyncStorage for future reference
-        try {
-          await AsyncStorage.setItem('lastGeneratedMealPlan', JSON.stringify(planJson));
-        } catch (storageError) {
-          console.error('Error saving meal plan:', storageError);
-        }
+        // Save the generated plan
+        await AsyncStorage.setItem('lastGeneratedMealPlan', JSON.stringify(planJson));
+        
       } catch (parseError) {
         console.error('Error parsing meal plan:', parseError);
+        
+        // Attempt to recover from parsing error by making another request
+        if (retryAttempt < 2) {
+          setIsLoading(false);
+          return generateMealPlan(retryAttempt + 1);
+        }
+        
+        // If we've already retried twice, show a user-friendly error and use fallback plan
         Alert.alert(
-          'Error',
-          'Failed to parse the generated meal plan. Please try again.',
+          'Notice',
+          'We encountered an issue generating your meal plan. We are generating a basic plan instead.',
           [{ text: 'OK' }]
         );
+
+        // Create a properly typed fallback plan
+        const fallbackPlan: MealPlan = {
+          dailyCalorieTarget: 2000,
+          dailyProteinTarget: 150,
+          dailyCarbTarget: 200,
+          dailyFatTarget: 70,
+          mealPlan: {
+            breakfast: [
+              {
+                name: "Healthy Oatmeal Bowl",
+                ingredients: ["Oats", "Milk", "Honey", "Fruits"],
+                preparation: "Cook oats with milk, add honey and fruits",
+                nutritionalInfo: { calories: 500, protein: 30, carbs: 45, fat: 20 }
+              } as MealOption,
+              {
+                name: "Toast with Eggs",
+                ingredients: ["Bread", "Eggs", "Butter", "Salt"],
+                preparation: "Toast bread, scramble eggs, serve together",
+                nutritionalInfo: { calories: 500, protein: 30, carbs: 45, fat: 20 }
+              } as MealOption
+            ] as [MealOption, MealOption],
+            lunch: [
+              {
+                name: "Rice and Curry",
+                ingredients: ["Rice", "Vegetables", "Spices", "Oil"],
+                preparation: "Cook rice, prepare curry with vegetables",
+                nutritionalInfo: { calories: 600, protein: 40, carbs: 50, fat: 25 }
+              } as MealOption,
+              {
+                name: "Sandwich",
+                ingredients: ["Bread", "Vegetables", "Cheese", "Sauce"],
+                preparation: "Layer ingredients between bread slices",
+                nutritionalInfo: { calories: 600, protein: 40, carbs: 50, fat: 25 }
+              } as MealOption
+            ] as [MealOption, MealOption],
+            dinner: [
+              {
+                name: "Grilled Chicken",
+                ingredients: ["Chicken", "Spices", "Oil", "Vegetables"],
+                preparation: "Marinate chicken, grill with vegetables",
+                nutritionalInfo: { calories: 500, protein: 35, carbs: 40, fat: 20 }
+              } as MealOption,
+              {
+                name: "Fish Curry",
+                ingredients: ["Fish", "Spices", "Oil", "Vegetables"],
+                preparation: "Cook fish with spices and vegetables",
+                nutritionalInfo: { calories: 500, protein: 35, carbs: 40, fat: 20 }
+              } as MealOption
+            ] as [MealOption, MealOption],
+            snacks: [
+              {
+                name: "Fruit Bowl",
+                ingredients: ["Mixed Fruits", "Honey", "Nuts"],
+                preparation: "Mix cut fruits with honey and nuts",
+                nutritionalInfo: { calories: 200, protein: 10, carbs: 25, fat: 8 }
+              } as MealOption,
+              {
+                name: "Yogurt Parfait",
+                ingredients: ["Yogurt", "Granola", "Honey", "Fruits"],
+                preparation: "Layer yogurt with fruits and granola",
+                nutritionalInfo: { calories: 200, protein: 10, carbs: 25, fat: 8 }
+              } as MealOption
+            ] as [MealOption, MealOption]
+          },
+          localConsiderations: "Basic plan considering common ingredients",
+          dietaryRecommendations: "General healthy eating guidelines"
+        };
+        
+        setGeneratedPlan(fallbackPlan);
+        await AsyncStorage.setItem('lastGeneratedMealPlan', JSON.stringify(fallbackPlan));
       }
     } catch (error) {
       console.error('Error generating meal plan:', error);
+      
+      // Show user-friendly error message
       Alert.alert(
-        'Error',
-        'Failed to generate meal plan. Please try again.',
+        'Notice',
+        'We encountered a temporary issue. Please try again.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -420,7 +512,7 @@ Generate a JSON response with EXACTLY TWO meal options per category in the follo
 
           <TouchableOpacity
             style={styles.generateButton}
-            onPress={generateMealPlan}
+            onPress={() => generateMealPlan()}
             disabled={isLoading}
           >
             {isLoading ? (

@@ -120,7 +120,11 @@ export default function DashboardScreen() {
 
   const handleActionPress = (action: string) => {
     console.log(`${action} pressed`);
-    // Implement navigation or action handling
+    if (action === 'track-meal') {
+      router.push('/(tabs)/meal-plan');
+    } else if (action === 'progress') {
+      router.push('/(tabs)/progress');
+    }
   };
 
   return (
@@ -234,7 +238,7 @@ export default function DashboardScreen() {
           icon="restaurant-outline"
           onPress={() => handleActionPress('track-meal')}
         />
-        <ActionCard
+        {/* <ActionCard
           title="Daily Exercise"
           description="Record your physical activities"
           icon="fitness-outline"
@@ -245,7 +249,7 @@ export default function DashboardScreen() {
           description="Update your water intake"
           icon="water-outline"
           onPress={() => handleActionPress('water')}
-        />
+        /> */}
         <ActionCard
           title="View Progress"
           description="Check your health journey"

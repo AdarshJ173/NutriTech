@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { FontAwesome } from '@expo/vector-icons';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { Platform, Pressable } from 'react-native';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
@@ -90,6 +90,15 @@ export default function TabLayout() {
           title: 'Meal Plan',
           tabBarIcon: ({ color, size }) => (
             <FontAwesome name="calendar" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="government-schemes"
+        options={{
+          title: 'Schemes',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="policy" size={size - 2} color={color} />
           ),
         }}
       />

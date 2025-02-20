@@ -390,40 +390,57 @@ const MealPlanScreen = () => {
         const currentPlanStr = await AsyncStorage.getItem('currentMealPlan');
         console.log('Current stored plan:', currentPlanStr);
         
-        let currentPlan: MealPlanStorage = currentPlanStr 
-          ? JSON.parse(currentPlanStr)
-          : { breakfast: null, lunch: null, dinner: null, snacks: null };
-
-        // Normalize the meal type for comparison - convert to lowercase and trim
-        const normalizedType = mealType.toLowerCase().trim();
-        console.log('Normalized meal type:', normalizedType);
-
-        // Fix: Directly determine the key rather than using a lookup table
-        let planKey: keyof MealPlanStorage;
-        
-        if (normalizedType === 'breakfast') {
-          planKey = 'breakfast';
-        } else if (normalizedType === 'lunch') {
-          planKey = 'lunch';
-        } else if (normalizedType === 'dinner') {
-          planKey = 'dinner';
-        } else if (normalizedType === 'snacks' || normalizedType === 'snack') {
-          planKey = 'snacks';
-        } else {
-          console.error('Unknown meal type:', normalizedType);
+        if (!currentPlanStr) {
+          console.error('No meal plan found in storage');
           return;
         }
+
+        // Parse current plan with error handling
+        let currentPlan: MealPlanStorage;
+        try {
+          currentPlan = JSON.parse(currentPlanStr);
+        } catch (e) {
+          console.error('Failed to parse meal plan:', e);
+          currentPlan = { breakfast: null, lunch: null, dinner: null, snacks: null };
+        }
+
+        // Normalize the meal type for comparison
+        const normalizedMealType = mealType.toLowerCase().trim();
         
-        console.log('Setting', planKey, 'to null');
-        currentPlan[planKey] = null;
+        // Get the storage key based on normalized meal type
+        let planKey: keyof MealPlanStorage;
+        switch (normalizedMealType) {
+          case 'breakfast':
+            planKey = 'breakfast';
+            break;
+          case 'lunch':
+            planKey = 'lunch';
+            break;
+          case 'dinner':
+            planKey = 'dinner';
+            break;
+          case 'snacks':
+          case 'snack':
+            planKey = 'snacks';
+            break;
+          default:
+            console.error('Unknown meal type:', mealType);
+            return;
+        }
         
-        console.log('Updated plan before save:', currentPlan);
+        // Create a new plan object with the specific meal set to null
+        const updatedPlan = {
+          ...currentPlan,
+          [planKey]: null
+        };
+        
+        console.log('Updated plan before save:', updatedPlan);
 
         // Save updated plan
-        await AsyncStorage.setItem('currentMealPlan', JSON.stringify(currentPlan));
+        await AsyncStorage.setItem('currentMealPlan', JSON.stringify(updatedPlan));
         
-        // Force a clean state update
-        setStoredMeals({...currentPlan});
+        // Force a clean state update with the new plan
+        setStoredMeals(updatedPlan);
         
         console.log('Meal removed successfully:', planKey);
 
@@ -439,8 +456,8 @@ const MealPlanScreen = () => {
       >
         <View style={styles.mealInfo}>
           <View style={styles.mealHeader}>
-            <Text style={styles.mealTime}>{
-              mealType === 'Breakfast' ? '8:00 AM' :
+            <Text style={styles.mealTime}>
+              {mealType === 'Breakfast' ? '8:00 AM' :
               mealType === 'Lunch' ? '1:00 PM' :
               mealType === 'Dinner' ? '7:00 PM' : '4:00 PM'
             }</Text>
@@ -490,18 +507,18 @@ const MealPlanScreen = () => {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        <View style={styles.mealsSection}>
+        <View style={styles.mealsContainer}>
           <Text style={styles.sectionTitle}>Breakfast</Text>
-          {renderMealCard(storedMeals?.breakfast, 'Breakfast')}
+          {renderMealCard(storedMeals?.breakfast ?? null, 'Breakfast')}
 
           <Text style={styles.sectionTitle}>Lunch</Text>
-          {renderMealCard(storedMeals?.lunch, 'Lunch')}
+          {renderMealCard(storedMeals?.lunch ?? null, 'Lunch')}
 
           <Text style={styles.sectionTitle}>Dinner</Text>
-          {renderMealCard(storedMeals?.dinner, 'Dinner')}
+          {renderMealCard(storedMeals?.dinner ?? null, 'Dinner')}
 
           <Text style={styles.sectionTitle}>Snacks</Text>
-          {renderMealCard(storedMeals?.snacks, 'Snacks')}
+          {renderMealCard(storedMeals?.snacks ?? null, 'Snacks')}
 
           {totalNutrition && (
             <Animated.View 
@@ -616,7 +633,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginTop: 24,
-    marginBottom: 32,
+    marginBottom: 80,
     ...Platform.select({
       ios: {
         shadowColor: Colors.light.shadow,
@@ -663,40 +680,26 @@ const styles = StyleSheet.create({
     color: Colors.light.textSecondary,
     marginTop: 4,
   } as TextStyle,
-  mealsSection: {
-    padding: 24,
+  content: {
+    flex: 1,
+    padding: 20,
   } as ViewStyle,
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  mealsContainer: {
+    paddingBottom: 32,
+  } as ViewStyle,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.light.text,
     marginBottom: 16,
-  } as ViewStyle,
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.light.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.light.shadow,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  } as ViewStyle,
-  addButtonText: {
-    fontSize: 14,
-    color: Colors.light.background,
-    marginLeft: 4,
-    fontWeight: '600',
-  } as TextStyle,
+  },
+  summaryTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.light.text,
+    marginBottom: 17,
+    textAlign: 'center',
+  },
   mealCardContainer: {
     marginBottom: 16,
     opacity: 0.99,
@@ -792,26 +795,6 @@ const styles = StyleSheet.create({
     color: Colors.light.background,
     fontWeight: '600',
   },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  mealsSection: {
-    paddingBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.light.text,
-    marginBottom: 16,
-  },
-  summaryTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.light.text,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
   mealHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -821,4 +804,25 @@ const styles = StyleSheet.create({
   removeButton: {
     padding: 4,
   },
+  caloriesBadgeContainer: {
+    backgroundColor: Colors.light.successLight,
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  } as ViewStyle,
+  caloriesText: {
+    fontSize: 14,
+    color: Colors.light.success,
+    fontWeight: '600',
+  } as TextStyle,
+  foodList: {
+    marginTop: 12,
+  } as ViewStyle,
+  foodItem: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    marginBottom: 4,
+  } as TextStyle,
 }); 
