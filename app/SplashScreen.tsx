@@ -1,8 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, Animated } from 'react-native';
+import { View, StyleSheet, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen() {
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -35,7 +33,7 @@ export default function SplashScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, scaleAnim, rotateAnim, slideAnim]);
 
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],

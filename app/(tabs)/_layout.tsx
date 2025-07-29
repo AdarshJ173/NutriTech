@@ -17,6 +17,30 @@ const Colors = {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// Custom tab button component to fix React Hook usage
+const TabButton = (props: any) => {
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          scale: withSpring(props.accessibilityState?.selected ? 1.1 : 1, {
+            damping: 15,
+            mass: 1,
+            stiffness: 120,
+          }),
+        },
+      ],
+    };
+  });
+
+  return (
+    <AnimatedPressable
+      {...props}
+      style={[props.style, animatedStyle]}
+    />
+  );
+};
+
 export default function TabLayout() {
   return (
     <Tabs
@@ -52,28 +76,7 @@ export default function TabLayout() {
           paddingVertical: 4,
           marginBottom: Platform.OS === 'ios' ? 12 : 8,
         },
-        tabBarButton: (props) => {
-          const animatedStyle = useAnimatedStyle(() => {
-            return {
-              transform: [
-                {
-                  scale: withSpring(props.accessibilityState?.selected ? 1.1 : 1, {
-                    damping: 15,
-                    mass: 1,
-                    stiffness: 120,
-                  }),
-                },
-              ],
-            };
-          });
-
-          return (
-            <AnimatedPressable
-              {...props}
-              style={[props.style, animatedStyle]}
-            />
-          );
-        },
+        tabBarButton: (props) => <TabButton {...props} />,
       })}>
       <Tabs.Screen
         name="dashboard"

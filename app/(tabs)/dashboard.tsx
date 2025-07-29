@@ -183,7 +183,7 @@ export default function DashboardScreen() {
       return () => {
         headerOpacity.value = withTiming(0);
       };
-    }, [])
+    }, [headerOpacity])
   );
 
   const headerAnimatedStyle = useAnimatedStyle(() => ({
@@ -249,7 +249,7 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
         onScroll={useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
           scrollY.value = event.nativeEvent.contentOffset.y;
-        }, [])}
+        }, [scrollY])}
         scrollEventThrottle={16}
       >
         {/* Stats Grid */}

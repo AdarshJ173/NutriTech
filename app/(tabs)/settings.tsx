@@ -1,10 +1,8 @@
-// @ts-ignore
-import { StyleSheet, TouchableOpacity, Platform, Alert, Dimensions, ScrollView, View, Pressable, Image, Switch, Text } from 'react-native';
-// @ts-ignore
+import { StyleSheet, TouchableOpacity, Platform, Alert, Dimensions, ScrollView, View, Pressable, Image, Switch } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInDown, FadeIn, SlideInRight, useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
+import Animated, { FadeInDown, useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
@@ -13,10 +11,9 @@ import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 // Theme Configuration
 const theme = {
@@ -84,7 +81,7 @@ const MenuItem = ({
 }: MenuItemProps) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const [isPressed, setIsPressed] = useState(false);
+  // const [isPressed, setIsPressed] = useState(false);
   const colors = isDark ? theme.dark : theme.light;
   const hapticFeedback = useHapticFeedback();
 
@@ -97,23 +94,23 @@ const MenuItem = ({
   }));
 
   const handlePressIn = useCallback(() => {
-    setIsPressed(true);
+    // setIsPressed(true);
     hapticFeedback.impactAsync(hapticFeedback.ImpactFeedbackStyle.Light);
     scaleAnimation.value = withSpring(0.98, {
       mass: 0.5,
       damping: 12,
       stiffness: 100
     });
-  }, []);
+  }, [hapticFeedback, scaleAnimation]);
 
   const handlePressOut = useCallback(() => {
-    setIsPressed(false);
+    // setIsPressed(false);
     scaleAnimation.value = withSpring(1, {
       mass: 0.5,
       damping: 12,
       stiffness: 100
     });
-  }, []);
+  }, [scaleAnimation]);
 
   const IconComponent = iconType === 'Ionicons' ? Ionicons : FontAwesome;
 
@@ -254,7 +251,7 @@ export default function SettingsScreen() {
       NavigationBar.setBackgroundColorAsync(darkMode ? colors.background[0] : colors.background[0]);
       NavigationBar.setButtonStyleAsync(darkMode ? 'light' : 'dark');
     }
-  }, [darkMode]);
+  }, [darkMode, colors.background]);
 
   // Sync darkMode state with system theme
   useEffect(() => {

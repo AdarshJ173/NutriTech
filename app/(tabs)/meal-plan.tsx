@@ -6,25 +6,16 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
-  Dimensions,
-  Image,
   ViewStyle,
   TextStyle,
-  AccessibilityInfo,
-  useWindowDimensions,
 } from 'react-native';
-import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import Animated, { 
   FadeInUp, 
   FadeIn,
-  SlideInRight,
-  useAnimatedStyle,
   withSpring,
-  withTiming,
   useSharedValue,
-  interpolate,
-  Extrapolate,
 } from 'react-native-reanimated';
 import { ThemedText } from '@/components/ThemedText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,8 +23,6 @@ import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-
-const { width } = Dimensions.get('window');
 
 // Enhanced color system with semantic naming and WCAG compliance
 const Colors = {
@@ -74,6 +63,7 @@ const Colors = {
 };
 
 // Enhanced theme with responsive scaling
+/*
 const createTheme = (windowWidth: number) => ({
   spacing: {
     xs: Math.max(4, windowWidth * 0.01),
@@ -148,7 +138,9 @@ const createTheme = (windowWidth: number) => ({
     },
   },
 });
+*/
 
+/*
 interface MealCardProps {
   mealType: string;
   time: string;
@@ -156,7 +148,9 @@ interface MealCardProps {
   foods: string[];
   onPress: () => void;
 }
+*/
 
+/*
 const MealCard: React.FC<MealCardProps> = ({ mealType, time, calories, foods, onPress }) => {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
@@ -212,7 +206,9 @@ const MealCard: React.FC<MealCardProps> = ({ mealType, time, calories, foods, on
     </TouchableOpacity>
   );
 };
+*/
 
+/*
 const DayButton: React.FC<{ 
   day: string; 
   date: number;
@@ -237,9 +233,11 @@ const DayButton: React.FC<{
     </Text>
   </TouchableOpacity>
 );
+*/
 
-const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+// const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+/*
 interface Meal {
   name: string;
   calories: number;
@@ -249,11 +247,14 @@ interface Meal {
   time: string;
   image?: string;
 }
+*/
 
+/*
 interface DayPlan {
   date: Date;
   meals: Meal[];
 }
+*/
 
 interface MealOption {
   name: string;
@@ -276,13 +277,13 @@ interface MealPlanStorage {
 }
 
 const MealPlanScreen = () => {
-  const { width: windowWidth } = useWindowDimensions();
+  // const { width: windowWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
-  const theme = useMemo(() => createTheme(windowWidth), [windowWidth]);
+  // const theme = useMemo(() => createTheme(windowWidth), [windowWidth]);
   const colors = colorScheme === 'dark' ? Colors.dark : Colors.light;
   
-  const [selectedDay, setSelectedDay] = useState(new Date());
+  // const [selectedDay, setSelectedDay] = useState(new Date());
   const [storedMeals, setStoredMeals] = useState<MealPlanStorage | null>(null);
   const scrollViewRef = React.useRef<Animated.ScrollView>(null);
   const headerHeight = useSharedValue(0);
@@ -361,7 +362,7 @@ const MealPlanScreen = () => {
       Math.max(0, 120 - scrollY),
       { damping: 20, stiffness: 200 }
     );
-  }, []);
+  }, [headerHeight]);
 
   // Render a meal card with improved error handling
   const renderMealCard = useCallback((meal: MealOption | null, mealType: string) => {
