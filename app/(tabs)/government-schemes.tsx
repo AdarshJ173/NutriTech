@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -77,8 +77,8 @@ const GovernmentSchemesScreen = () => {
   const [loading, setLoading] = useState(true);
   const [schemes, setSchemes] = useState<Scheme[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  // const [retryCount, setRetryCount] = useState(0);
+  // const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   const fetchUserProfileFromFirestore = async (): Promise<UserProfile | null> => {
     try {
@@ -308,7 +308,7 @@ const GovernmentSchemesScreen = () => {
     }
   ];
 
-  const loadRecommendations = async (showLoading = true) => {
+  const loadRecommendations = useCallback(async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
       setError(null);
@@ -331,7 +331,7 @@ const GovernmentSchemesScreen = () => {
     } finally {
       if (showLoading) setLoading(false);
     }
-  };
+  }, [schemes.length, fetchSchemeRecommendations, fetchUserProfile]);
 
   const handleRetry = async () => {
     setRetryCount(prev => prev + 1);
@@ -341,7 +341,7 @@ const GovernmentSchemesScreen = () => {
   useFocusEffect(
     useCallback(() => {
       loadRecommendations();
-    }, [])
+    }, [loadRecommendations])
   );
 
   const handleSchemePress = async (url: string) => {

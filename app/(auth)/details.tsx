@@ -6,7 +6,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { 
   FadeInDown, 
   FadeInUp, 
-  FadeOut,
   useAnimatedStyle,
   withSpring,
   useSharedValue,
@@ -28,7 +27,7 @@ interface UserDetails {
   location: string;
 }
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
@@ -42,7 +41,7 @@ export default function DetailsScreen() {
     location: '',
   });
 
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  // const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const headerHeight = useSharedValue(70);
   const inputScale = useSharedValue(1);
@@ -62,7 +61,7 @@ export default function DetailsScreen() {
       keyboardWillShow.remove();
       keyboardWillHide.remove();
     };
-  }, []);
+  }, [headerHeight]);
 
   const headerAnimatedStyle = useAnimatedStyle(() => {
     return {

@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Slot, Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -49,7 +49,7 @@ export default function RootLayout() {
     if (isNavigationReady && segments.length === 0) {
       router.replace('/(auth)/details');
     }
-  }, [isNavigationReady, segments]);
+  }, [isNavigationReady, segments, router]);
 
   if (!loaded || showSplash) {
     return <SplashScreen />;
